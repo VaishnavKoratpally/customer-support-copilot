@@ -1,0 +1,84 @@
+# Customer Support Copilot (Human-in-the-Loop)
+
+This repository is the implementation workspace for a production-grade, free-first customer support copilot. The design prioritizes:
+
+- local OSS models first (Ollama)
+- explicit human-in-the-loop guardrails
+- measurable quality via evaluation harnesses
+- architecture decisions documented with tradeoffs
+
+## Current milestone
+
+Week 1 baseline scaffold:
+
+- local runtime stack (Postgres + Redis + Ollama + API) via Docker Compose
+- API skeleton with routing, retrieval, confidence policy, and HITL decisioning
+- architecture docs and ADR template
+- day-by-day execution checklist
+- v1 domain scope selected: B2B SaaS billing + account support
+
+## Repository layout
+
+- `services/api`: FastAPI backend skeleton
+- `docs`: architecture, ADRs, and execution checklist
+- `docker-compose.yml`: local runtime
+
+## Prerequisites
+
+- Docker Desktop
+- Python 3.11+ (for local non-container validation, optional)
+
+## Quick start
+
+1) Create local env file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2) Start infrastructure:
+
+```powershell
+docker compose up -d postgres redis ollama
+```
+
+3) Pull recommended models inside Ollama container:
+
+```powershell
+docker compose exec ollama ollama pull qwen3:4b
+docker compose exec ollama ollama pull qwen3:14b
+docker compose exec ollama ollama pull qwen3:20b
+docker compose exec ollama ollama pull mxbai-embed-large
+```
+
+4) Start API:
+
+```powershell
+docker compose up --build api
+```
+
+5) Health check:
+
+```powershell
+curl http://localhost:8000/health
+```
+
+6) Draft endpoint sample:
+
+```powershell
+curl -X POST http://localhost:8000/v1/support/draft `
+  -H "Content-Type: application/json" `
+  -d "{\"question\":\"I was charged twice for my plan. Can you help?\"}"
+```
+
+## Next implementation steps
+
+Start with [WEEK-01-EXECUTION-CHECKLIST.md](docs/WEEK-01-EXECUTION-CHECKLIST.md), then progress through ADR-backed decisions and eval-driven iterations.
+
+Also review:
+- [DOMAIN-SCOPE.md](docs/DOMAIN-SCOPE.md)
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [DATA-MODEL.md](docs/DATA-MODEL.md)
+- [adr/001-free-first-local-oss.md](docs/adr/001-free-first-local-oss.md)
+- [adr/002-v1-domain-scope.md](docs/adr/002-v1-domain-scope.md)
+- [adr/003-initial-data-model.md](docs/adr/003-initial-data-model.md)
