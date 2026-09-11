@@ -3,10 +3,10 @@
 Use this checklist as your first execution sprint.
 
 ## Day 1 - Problem framing
-- [ ] Finalize support domain and top 25 intents
-- [ ] Define unsupported intents for v1
-- [ ] Write v1 success criteria (latency, quality, safety, cost)
-- [ ] Create ADR for domain scope decisions
+- [x] Finalize support domain and top 25 intents
+- [x] Define unsupported intents for v1
+- [x] Write v1 success criteria (latency, quality, safety, cost)
+- [x] Create ADR for domain scope decisions
 
 Exit criteria:
 - You can explain why each supported intent is included.
@@ -64,4 +64,3 @@ Exit criteria:
 
 Exit criteria:
 - You have metrics + decisions to justify next changes.
-

@@ -77,6 +77,7 @@ Start with [WEEK-01-EXECUTION-CHECKLIST.md](docs/WEEK-01-EXECUTION-CHECKLIST.md)
 
 Also review:
 - [DOMAIN-SCOPE.md](docs/DOMAIN-SCOPE.md)
+- [SUCCESS-CRITERIA.md](docs/SUCCESS-CRITERIA.md)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [DATA-MODEL.md](docs/DATA-MODEL.md)
 - [adr/001-free-first-local-oss.md](docs/adr/001-free-first-local-oss.md)
