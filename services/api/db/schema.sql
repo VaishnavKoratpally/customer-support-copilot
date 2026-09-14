@@ -67,3 +67,22 @@ CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding
 ON document_chunks USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_tickets_set_updated_at ON tickets;
+CREATE TRIGGER trg_tickets_set_updated_at
+BEFORE UPDATE ON tickets
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_source_documents_set_updated_at ON source_documents;
+CREATE TRIGGER trg_source_documents_set_updated_at
+BEFORE UPDATE ON source_documents
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

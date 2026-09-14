@@ -23,4 +23,4 @@ This schema supports deterministic support operations plus RAG traceability.
 
 - Embedding dimension is set to 1024 for the initial local embedding baseline.
 - If you switch embedding model dimensions later, create a dedicated migration and re-embed chunks.
-
+- updated_at is maintained by DB triggers for tickets and source_documents to avoid missed timestamp updates across write paths.
