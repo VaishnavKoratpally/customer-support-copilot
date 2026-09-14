@@ -12,16 +12,16 @@ Exit criteria:
 - You can explain why each supported intent is included.
 
 ## Day 2 - Data and schema foundation
-- [ ] Define ticket, message, and audit event schemas
-- [ ] Define source document schema for ingestion
-- [ ] Define chunk metadata fields (doc type, policy version, date, scope)
-- [ ] Create ADR for schema boundaries
+- [x] Define ticket, message, and audit event schemas
+- [x] Define source document schema for ingestion
+- [x] Define chunk metadata fields (doc type, policy version, date, scope)
+- [x] Create ADR for schema boundaries
 
 Exit criteria:
 - Every generated answer can be traced to source documents.
 
 ## Day 3 - Retrieval baseline
-- [ ] Implement initial chunking policy
+- [x] Implement initial chunking policy
 - [ ] Create ingestion + embedding pipeline skeleton
 - [ ] Define retrieval API contract
 - [ ] Build 20-query retrieval smoke eval set
