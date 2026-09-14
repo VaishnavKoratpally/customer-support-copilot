@@ -28,6 +28,22 @@ Week 1 baseline scaffold:
 - Docker Desktop
 - Python 3.11+ (for local non-container validation, optional)
 
+## pgAdmin (Database GUI)
+
+Open: http://localhost:5050
+
+Login:
+- Email: value of PGADMIN_DEFAULT_EMAIL
+- Password: value of PGADMIN_DEFAULT_PASSWORD
+
+Add server in pgAdmin:
+- Name: support-copilot-postgres
+- Host: postgres
+- Port: 5432
+- Maintenance DB: support_copilot
+- Username: support_user
+- Password: support_password
+
 ## Quick start
 
 1) Create local env file:
@@ -39,7 +55,7 @@ Copy-Item .env.example .env
 2) Start infrastructure:
 
 ```powershell
-docker compose up -d postgres redis ollama
+docker compose up -d postgres redis ollama pgadmin
 ```
 
 3) Pull recommended models inside Ollama container:
