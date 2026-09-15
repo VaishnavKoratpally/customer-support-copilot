@@ -27,3 +27,20 @@ class SupportDraftResponse(BaseModel):
     requires_human_review: bool
     escalation_reason: str | None = None
 
+class RetrievalQueryRequest(BaseModel):
+    question: str = Field(min_length=5, max_length=3000)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class RetrievalHit(BaseModel):
+    rank: int
+    source_id: str
+    title: str
+    excerpt: str
+
+
+class RetrievalQueryResponse(BaseModel):
+    query: str
+    top_k: int
+    retrieval_confidence: float
+    hits: list[RetrievalHit]
