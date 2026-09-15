@@ -22,8 +22,8 @@ Exit criteria:
 
 ## Day 3 - Retrieval baseline
 - [x] Implement initial chunking policy
-- [ ] Create ingestion + embedding pipeline skeleton
-- [ ] Define retrieval API contract
+- [x] Create ingestion + embedding pipeline skeleton
+- [x] Define retrieval API contract
 - [ ] Build 20-query retrieval smoke eval set
 
 Exit criteria:
