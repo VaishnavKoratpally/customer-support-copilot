@@ -4,7 +4,8 @@ class StubLLMProvider:
     Uses deterministic drafting so orchestration and policy logic can be tested first.
     """
 
-    def draft_response(self, *, question: str, intent: str, model_name: str) -> str:
+    def draft_response(self,*,question: str,intent: str,model_name: str,system_prompt: str,user_prompt: str,) -> str:
+        _ = (system_prompt, user_prompt, model_name)
         if intent == "billing_dispute":
             return (
                 "Thanks for flagging this. I can see this may be a billing dispute. "

@@ -5,6 +5,7 @@ from app.llm_provider import StubLLMProvider
 from app.retriever import StubRetriever
 from app.routing import route_question
 from app.schemas import SupportDraftRequest, SupportDraftResponse
+from app.prompts import build_support_system_prompt, build_support_user_prompt
 
 
 class CopilotOrchestrator:
@@ -29,11 +30,20 @@ class CopilotOrchestrator:
         if retrieval.confidence < self._settings.retrieval_confidence_threshold:
             model_name = self._settings.escalation_model
             escalation_reason = "low_retrieval_confidence"
+        
+        system_prompt = build_support_system_prompt()
+        user_prompt = build_support_user_prompt(
+            question=payload.question,
+            intent=route.intent,
+            citations=retrieval.citations,
+        )
 
         draft = self._llm_provider.draft_response(
             question=payload.question,
             intent=route.intent,
             model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
         )
 
         answer_confidence = round((retrieval.confidence * 0.7) + (0.2 if route.risk_level == "low" else 0.1), 2)

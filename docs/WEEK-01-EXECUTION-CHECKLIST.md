@@ -24,7 +24,7 @@ Exit criteria:
 - [x] Implement initial chunking policy
 - [x] Create ingestion + embedding pipeline skeleton
 - [x] Define retrieval API contract
-- [ ] Build 20-query retrieval smoke eval set
+- [x] Build 20-query retrieval smoke eval set
 
 Exit criteria:
 - Retrieval returns relevant evidence for most known queries.
