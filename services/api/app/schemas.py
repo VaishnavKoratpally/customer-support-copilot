@@ -26,6 +26,8 @@ class SupportDraftResponse(BaseModel):
     answer_confidence: float
     requires_human_review: bool
     escalation_reason: str | None = None
+    citation_source_ids: list[str]
+    citation_contract_passed: bool
 
 class RetrievalQueryRequest(BaseModel):
     question: str = Field(min_length=5, max_length=3000)

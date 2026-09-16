@@ -92,6 +92,9 @@ v1 structure:
 ### v1 (current)
 - static system/user prompt templates
 - deterministic response flow
+- response must include citation_source_ids
+- citation_contract_passed must be true for normal flow
+- missing citations forces HITL with escalation reason
 
 ### v1.1
 - add explicit citation rendering format in output contract

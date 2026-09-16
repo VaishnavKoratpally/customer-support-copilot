@@ -30,8 +30,8 @@ Exit criteria:
 - Retrieval returns relevant evidence for most known queries.
 
 ## Day 4 - Prompting and answer policy
-- [ ] Create prompt templates for grounded answer generation
-- [ ] Enforce citation-required output contract
+- [x] Create prompt templates for grounded answer generation
+- [x] Enforce citation-required output contract
 - [ ] Define confidence scoring method v0
 - [ ] Create ADR for routing threshold defaults
 

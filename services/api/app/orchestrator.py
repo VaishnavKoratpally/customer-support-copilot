@@ -7,6 +7,15 @@ from app.routing import route_question
 from app.schemas import SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 
+def _unique_source_ids(citations: list) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for citation in citations:
+        source_id = citation.source_id
+        if source_id not in seen:
+            seen.add(source_id)
+            ordered.append(source_id)
+    return ordered
 
 class CopilotOrchestrator:
     def __init__(
@@ -24,6 +33,8 @@ class CopilotOrchestrator:
         trace_id = str(uuid4())
         route = route_question(payload.question)
         retrieval = self._retriever.retrieve(payload.question)
+        citation_source_ids = _unique_source_ids(retrieval.citations)
+        citation_contract_passed = len(citation_source_ids) > 0
 
         model_name = self._settings.main_model
         escalation_reason: str | None = None
@@ -46,15 +57,22 @@ class CopilotOrchestrator:
             user_prompt=user_prompt,
         )
 
+        if citation_contract_passed:
+            draft = f"{draft}\n\nSources: " + ", ".join(f"[{sid}]" for sid in citation_source_ids)
+
         answer_confidence = round((retrieval.confidence * 0.7) + (0.2 if route.risk_level == "low" else 0.1), 2)
 
         requires_human_review = (
             route.risk_level == "high"
             or answer_confidence < self._settings.answer_confidence_threshold
             or len(retrieval.citations) == 0
+            or not citation_contract_passed
         )
         if requires_human_review and escalation_reason is None:
             escalation_reason = "policy_gate"
+
+        if not citation_contract_passed:
+            escalation_reason = "missing_citations"
 
         return SupportDraftResponse(
             trace_id=trace_id,
@@ -67,5 +85,7 @@ class CopilotOrchestrator:
             answer_confidence=answer_confidence,
             requires_human_review=requires_human_review,
             escalation_reason=escalation_reason,
+            citation_source_ids=citation_source_ids,
+            citation_contract_passed=citation_contract_passed,
         )
 
