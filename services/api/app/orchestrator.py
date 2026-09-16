@@ -7,6 +7,7 @@ from app.routing import route_question
 from app.schemas import SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 from app.confidence import compute_answer_confidence
+from app.review_policy import evaluate_review_policy
 
 def _unique_source_ids(citations: list) -> list[str]:
     seen: set[str] = set()
@@ -66,17 +67,22 @@ class CopilotOrchestrator:
             risk_level=route.risk_level,
         )
 
-        requires_human_review = (
-            route.risk_level == "high"
-            or answer_confidence < self._settings.answer_confidence_threshold
-            or len(retrieval.citations) == 0
-            or not citation_contract_passed
+       review_decision = evaluate_review_policy(
+            intent=route.intent,
+            answer_confidence=answer_confidence,
+            answer_confidence_threshold=self._settings.answer_confidence_threshold,
+            citation_contract_passed=citation_contract_passed,
         )
-        if requires_human_review and escalation_reason is None:
+        
+        requires_human_review = review_decision.requires_human_review
+        if "missing_citations" in review_decision.triggers:
+            escalation_reason = "missing_citations"
+
+        elif "low_answer_confidence" in review_decision.triggers and escalation_reason is None:
             escalation_reason = "policy_gate"
 
-        if not citation_contract_passed:
-            escalation_reason = "missing_citations"
+        elif "high_risk_intent" in review_decision.triggers and escalation_reason is None:
+            escalation_reason = "policy_gate"
 
         return SupportDraftResponse(
             trace_id=trace_id,
@@ -91,5 +97,6 @@ class CopilotOrchestrator:
             escalation_reason=escalation_reason,
             citation_source_ids=citation_source_ids,
             citation_contract_passed=citation_contract_passed,
+            review_triggers=review_decision.triggers,
         )
 

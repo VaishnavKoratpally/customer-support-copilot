@@ -33,13 +33,13 @@ Exit criteria:
 - [x] Create prompt templates for grounded answer generation
 - [x] Enforce citation-required output contract
 - [x] Define confidence scoring method v0
-- [ ] Create ADR for routing threshold defaults
+- [x] Create ADR for routing threshold defaults
 
 Exit criteria:
 - Model output includes citations and confidence consistently.
 
 ## Day 5 - Human-in-the-loop workflow
-- [ ] Implement mandatory review rules for high-risk intents
+- [x] Implement mandatory review rules for high-risk intents
 - [ ] Implement review statuses (approve/edit/reject)
 - [ ] Record rejection reasons taxonomy
 - [ ] Define audit log payload for review actions
