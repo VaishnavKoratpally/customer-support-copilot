@@ -6,6 +6,7 @@ from app.retriever import StubRetriever
 from app.routing import route_question
 from app.schemas import SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
+from app.confidence import compute_answer_confidence
 
 def _unique_source_ids(citations: list) -> list[str]:
     seen: set[str] = set()
@@ -60,7 +61,10 @@ class CopilotOrchestrator:
         if citation_contract_passed:
             draft = f"{draft}\n\nSources: " + ", ".join(f"[{sid}]" for sid in citation_source_ids)
 
-        answer_confidence = round((retrieval.confidence * 0.7) + (0.2 if route.risk_level == "low" else 0.1), 2)
+        answer_confidence = compute_answer_confidence(
+            retrieval_confidence=retrieval.confidence,
+            risk_level=route.risk_level,
+        )
 
         requires_human_review = (
             route.risk_level == "high"
