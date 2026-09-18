@@ -67,7 +67,7 @@ class CopilotOrchestrator:
             risk_level=route.risk_level,
         )
 
-       review_decision = evaluate_review_policy(
+        review_decision = evaluate_review_policy(
             intent=route.intent,
             answer_confidence=answer_confidence,
             answer_confidence_threshold=self._settings.answer_confidence_threshold,
