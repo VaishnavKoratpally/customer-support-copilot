@@ -1,6 +1,7 @@
 from typing import Literal
 from datetime import date, datetime
 from pydantic import BaseModel, Field
+from app.review_taxonomy import RejectionReasonCode
 
 ReviewStatus = Literal["approve", "edit", "reject"]
 
@@ -87,7 +88,7 @@ class SupportReviewRequest(BaseModel):
     status: ReviewStatus
     ai_draft: str = Field(min_length=1, max_length=5000)
     edited_draft: str | None = Field(default=None, max_length=5000)
-    rejection_reason_code: str | None = Field(default=None, max_length=100)
+    rejection_reason_code: RejectionReasonCode | None = Field(default=None, max_length=100)
 
 
 class SupportReviewResponse(BaseModel):

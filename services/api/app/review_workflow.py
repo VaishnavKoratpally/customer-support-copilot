@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from app.review_taxonomy import VALID_REJECTION_REASONS
 
 from app.schemas import SupportReviewRequest, SupportReviewResponse
 
@@ -15,8 +16,8 @@ def apply_review_decision(payload: SupportReviewRequest) -> SupportReviewRespons
         requires_follow_up = False
 
     else:  # reject
-        if payload.rejection_reason_code is None or payload.rejection_reason_code.strip() == "":
-            raise ValueError("rejection_reason_code is required when status is 'reject'.")
+        if payload.rejection_reason_code not in VALID_REJECTION_REASONS:
+            raise ValueError("rejection_reason_code is invalid.")
         final_draft = ""
         requires_follow_up = True
 
