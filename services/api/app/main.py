@@ -13,6 +13,8 @@ from app.schemas import (
     RetrievalQueryResponse,
     SupportDraftRequest,
     SupportDraftResponse,
+    SupportReviewRequest,
+    SupportReviewResponse,
 )
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 
@@ -55,3 +57,10 @@ def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
 @app.post("/v1/ingestion/preview", response_model=IngestionPreviewResponse)
 def preview_ingestion(payload: IngestionPreviewRequest) -> IngestionPreviewResponse:
     return ingestion_preview_pipeline.preview(payload)
+
+@app.post("/v1/support/review", response_model=SupportReviewResponse)
+def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse:
+    try:
+        return apply_review_decision(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

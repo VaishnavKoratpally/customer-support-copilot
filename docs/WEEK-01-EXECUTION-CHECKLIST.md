@@ -40,7 +40,7 @@ Exit criteria:
 
 ## Day 5 - Human-in-the-loop workflow
 - [x] Implement mandatory review rules for high-risk intents
-- [ ] Implement review statuses (approve/edit/reject)
+- [x] Implement review statuses (approve/edit/reject)
 - [ ] Record rejection reasons taxonomy
 - [ ] Define audit log payload for review actions
 

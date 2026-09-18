@@ -1,7 +1,8 @@
 from typing import Literal
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 
+ReviewStatus = Literal["approve", "edit", "reject"]
 
 class Citation(BaseModel):
     source_id: str
@@ -79,3 +80,20 @@ class IngestionPreviewResponse(BaseModel):
     total_chunks: int
     total_estimated_tokens: int
     chunks: list[IngestionChunkPreview]
+
+class SupportReviewRequest(BaseModel):
+    trace_id: str = Field(min_length=1)
+    reviewer_id: str = Field(min_length=1, max_length=100)
+    status: ReviewStatus
+    ai_draft: str = Field(min_length=1, max_length=5000)
+    edited_draft: str | None = Field(default=None, max_length=5000)
+    rejection_reason_code: str | None = Field(default=None, max_length=100)
+
+
+class SupportReviewResponse(BaseModel):
+    trace_id: str
+    reviewer_id: str
+    status: ReviewStatus
+    final_draft: str
+    requires_follow_up: bool
+    reviewed_at: datetime
