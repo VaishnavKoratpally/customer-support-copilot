@@ -98,3 +98,16 @@ class SupportReviewResponse(BaseModel):
     final_draft: str
     requires_follow_up: bool
     reviewed_at: datetime
+    audit_event_payload: ReviewAuditEventPayload
+
+class ReviewAuditEventPayload(BaseModel):
+    event_type: Literal["support_review_decision_recorded"]
+    actor_type: Literal["agent"]
+    actor_id: str
+    trace_id: str
+    status: ReviewStatus
+    rejection_reason_code: RejectionReasonCode | None = None
+    requires_follow_up: bool
+    reviewed_at: datetime
+    ai_draft_sha256: str
+    final_draft_sha256: str | None = None

@@ -42,7 +42,7 @@ Exit criteria:
 - [x] Implement mandatory review rules for high-risk intents
 - [x] Implement review statuses (approve/edit/reject)
 - [x] Record rejection reasons taxonomy
-- [ ] Define audit log payload for review actions
+- [x] Define audit log payload for review actions
 
 Exit criteria:
 - No high-risk answer can bypass review.

@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from app.review_taxonomy import VALID_REJECTION_REASONS
+from hashlib import sha256
+from app.schemas import ReviewAuditEventPayload, SupportReviewRequest, SupportReviewResponse
 
-from app.schemas import SupportReviewRequest, SupportReviewResponse
-
-
+def _sha256_text(value: str) -> str:
+    return sha256(value.encode("utf-8")).hexdigest()
 def apply_review_decision(payload: SupportReviewRequest) -> SupportReviewResponse:
     if payload.status == "approve":
         final_draft = payload.ai_draft
@@ -20,6 +21,21 @@ def apply_review_decision(payload: SupportReviewRequest) -> SupportReviewRespons
             raise ValueError("rejection_reason_code is invalid.")
         final_draft = ""
         requires_follow_up = True
+    
+    reviewed_at = datetime.now(timezone.utc)
+
+    audit_event_payload = ReviewAuditEventPayload(
+        event_type="support_review_decision_recorded",
+        actor_type="agent",
+        actor_id=payload.reviewer_id,
+        trace_id=payload.trace_id,
+        status=payload.status,
+        rejection_reason_code=payload.rejection_reason_code,
+        requires_follow_up=requires_follow_up,
+        reviewed_at=reviewed_at,
+        ai_draft_sha256=_sha256_text(payload.ai_draft),
+        final_draft_sha256=_sha256_text(final_draft) if final_draft else None,
+    )
 
     return SupportReviewResponse(
         trace_id=payload.trace_id,
@@ -27,5 +43,6 @@ def apply_review_decision(payload: SupportReviewRequest) -> SupportReviewRespons
         status=payload.status,
         final_draft=final_draft,
         requires_follow_up=requires_follow_up,
-        reviewed_at=datetime.now(timezone.utc),
+        reviewed_at=reviewed_at,
+        audit_event_payload=audit_event_payload,
     )
