@@ -1,5 +1,6 @@
 from uuid import uuid4
-
+import logging
+from app.logging_utils import log_event
 from app.config import Settings
 from app.llm_provider import StubLLMProvider
 from app.retriever import StubRetriever
@@ -8,6 +9,8 @@ from app.schemas import SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 from app.confidence import compute_answer_confidence
 from app.review_policy import evaluate_review_policy
+
+logger = logging.getLogger("support_copilot.orchestrator")
 
 def _unique_source_ids(citations: list) -> list[str]:
     seen: set[str] = set()
@@ -83,6 +86,20 @@ class CopilotOrchestrator:
 
         elif "high_risk_intent" in review_decision.triggers and escalation_reason is None:
             escalation_reason = "policy_gate"
+        
+        log_event(
+            logger,
+            "support_draft_decision",
+            trace_id=trace_id,
+            intent=route.intent,
+            risk_level=route.risk_level,
+            model_used=model_name,
+            retrieval_confidence=retrieval.confidence,
+            answer_confidence=answer_confidence,
+            requires_human_review=requires_human_review,
+            escalation_reason=escalation_reason,
+            review_triggers=review_decision.triggers,
+        )
 
         return SupportDraftResponse(
             trace_id=trace_id,

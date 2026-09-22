@@ -1,5 +1,9 @@
-from fastapi import FastAPI, HTTPException
+import logging
+import time
+from uuid import uuid4
+from fastapi import FastAPI, HTTPException, Request
 from app.config import get_settings
+from app.logging_utils import configure_logging, log_event
 from app.llm_provider import StubLLMProvider
 from app.orchestrator import CopilotOrchestrator
 from app.review_workflow import apply_review_decision
@@ -19,6 +23,8 @@ from app.schemas import (
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 
 settings = get_settings()
+configure_logging(settings.log_level)
+logger = logging.getLogger("support_copilot.api")
 retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
 orchestrator = CopilotOrchestrator(
@@ -26,6 +32,35 @@ orchestrator = CopilotOrchestrator(
     retriever=retriever,
     llm_provider=StubLLMProvider(),
 )
+
+@app.middleware("http")
+async def request_lifecycle_logger(request: Request, call_next):
+    request_id = str(uuid4())
+    start = time.perf_counter()
+    request.state.request_id = request_id
+
+    log_event(
+        logger,
+        "request_started",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+    )
+
+    response = await call_next(request)
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    log_event(
+        logger,
+        "request_finished",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+    )
+    return response
+
 
 @app.get("/health")
 def health() -> dict[str, str]:

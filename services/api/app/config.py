@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     retrieval_confidence_threshold: float = Field(default=0.55, alias="RETRIEVAL_CONFIDENCE_THRESHOLD")
     answer_confidence_threshold: float = Field(default=0.65, alias="ANSWER_CONFIDENCE_THRESHOLD")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
 
 @lru_cache(maxsize=1)

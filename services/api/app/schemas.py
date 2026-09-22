@@ -90,16 +90,6 @@ class SupportReviewRequest(BaseModel):
     edited_draft: str | None = Field(default=None, max_length=5000)
     rejection_reason_code: RejectionReasonCode | None = Field(default=None, max_length=100)
 
-
-class SupportReviewResponse(BaseModel):
-    trace_id: str
-    reviewer_id: str
-    status: ReviewStatus
-    final_draft: str
-    requires_follow_up: bool
-    reviewed_at: datetime
-    audit_event_payload: ReviewAuditEventPayload
-
 class ReviewAuditEventPayload(BaseModel):
     event_type: Literal["support_review_decision_recorded"]
     actor_type: Literal["agent"]
@@ -111,3 +101,13 @@ class ReviewAuditEventPayload(BaseModel):
     reviewed_at: datetime
     ai_draft_sha256: str
     final_draft_sha256: str | None = None
+
+class SupportReviewResponse(BaseModel):
+    trace_id: str
+    reviewer_id: str
+    status: ReviewStatus
+    final_draft: str
+    requires_follow_up: bool
+    reviewed_at: datetime
+    audit_event_payload: ReviewAuditEventPayload
+
