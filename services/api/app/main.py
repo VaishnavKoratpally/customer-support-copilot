@@ -20,6 +20,8 @@ from app.schemas import (
     SupportReviewRequest,
     SupportReviewResponse,
 )
+from app.metrics import InMemoryMetrics
+metrics = InMemoryMetrics()
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 
 settings = get_settings()
@@ -50,6 +52,7 @@ async def request_lifecycle_logger(request: Request, call_next):
     response = await call_next(request)
 
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    metrics.record_http_request(status_code=response.status_code, duration_ms=duration_ms)
     log_event(
         logger,
         "request_finished",
@@ -69,7 +72,9 @@ def health() -> dict[str, str]:
 
 @app.post("/v1/support/draft", response_model=SupportDraftResponse)
 def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
-    return orchestrator.draft_reply(payload)
+    result = orchestrator.draft_reply(payload)
+    metrics.record_support_draft(requires_human_review=result.requires_human_review)
+    return result
 
 @app.post("/v1/retrieval/query", response_model=RetrievalQueryResponse)
 def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
@@ -99,3 +104,7 @@ def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse
         return apply_review_decision(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@app.get("/v1/metrics")
+def get_metrics() -> dict:
+    return metrics.snapshot()
