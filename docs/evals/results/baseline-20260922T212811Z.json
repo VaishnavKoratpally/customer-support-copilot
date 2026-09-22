@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "20260922T212811Z",
+  "git_sha": "7cd25a2",
+  "retrieval_smoke": {
+    "exit_code": 1,
+    "stdout": "\nRetrieval Smoke Eval Results\n\nid      | pass | conf | min | recall | missing_sources\n------------------------------------------------------------------------\nrq-001  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-002  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-003  | no   | 0.61 | 0.80 | 0.00   | billing-policy-01,support-sla-02\nrq-004  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-005  | no   | 0.61 | 0.80 | 0.00   | billing-policy-01,support-sla-02\nrq-006  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-007  | no   | 0.61 | 0.80 | 0.00   | billing-policy-01,support-sla-02\nrq-008  | no   | 0.61 | 0.80 | 0.00   | billing-policy-01,support-sla-02\nrq-009  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-010  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-011  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-012  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-013  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-014  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-015  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-016  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-017  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-018  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-019  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-020  | yes  | 0.61 | 0.60 | 1.00   | -\n\nSummary\n- Total cases: 20\n- Passed: 16\n- Failed: 4\n- Pass rate: 80.0%\n- Average recall: 0.8\n",
+    "stderr": ""
+  },
+  "service_metrics": {
+    "payload": {
+      "request_total": 93,
+      "request_error_total": 0,
+      "request_error_rate": 0.0,
+      "request_latency_p50_ms": 1.44,
+      "request_latency_p95_ms": 4.82,
+      "support_draft_total": 0,
+      "support_human_review_total": 0,
+      "support_human_review_rate": 0.0
+    },
+    "error": null
+  }
+}

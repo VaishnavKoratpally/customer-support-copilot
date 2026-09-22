@@ -57,7 +57,7 @@ Exit criteria:
 - You can detect and explain failures quickly.
 
 ## Day 7 - Eval-first discipline and retrospective
-- [ ] Run baseline evals and save metrics
+- [x] Run baseline evals and save metrics
 - [ ] Compare against SLO targets
 - [ ] Log 2 architecture lessons learned
 - [ ] Plan Week 2 scope
