@@ -48,7 +48,7 @@ Exit criteria:
 - No high-risk answer can bypass review.
 
 ## Day 6 - Local deployment and observability
-- [ ] Validate Docker Compose startup and health checks
+- [x] Validate Docker Compose startup and health checks
 - [ ] Add structured logs for request lifecycle
 - [ ] Add basic metrics (latency, escalation rate, error rate)
 - [ ] Run a failure drill (dependency unavailable)
