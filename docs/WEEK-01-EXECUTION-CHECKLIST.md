@@ -58,9 +58,9 @@ Exit criteria:
 
 ## Day 7 - Eval-first discipline and retrospective
 - [x] Run baseline evals and save metrics
-- [ ] Compare against SLO targets
-- [ ] Log 2 architecture lessons learned
-- [ ] Plan Week 2 scope
+- [x] Compare against SLO targets
+- [x] Log 2 architecture lessons learned
+- [x] Plan Week 2 scope
 
 Exit criteria:
 - You have metrics + decisions to justify next changes.
