@@ -4,6 +4,7 @@ Date: 2026-09-22
 
 Execution tracker:
 - `docs/WEEK-02-EXECUTION-CHECKLIST.md`
+- `docs/WEEK-02-INSTRUCTOR-MODE.md`
 
 ## Week 02 objective
 

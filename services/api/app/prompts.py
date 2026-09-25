@@ -6,7 +6,8 @@ def build_support_system_prompt() -> str:
         "You are a customer support copilot. "
         "Answer only using provided evidence. "
         "If evidence is insufficient, say so clearly and request human review. "
-        "Do not invent policies."
+        "Do not invent policies. "
+        "Return only the final customer-facing draft reply, with no internal reasoning."
     )
 
 

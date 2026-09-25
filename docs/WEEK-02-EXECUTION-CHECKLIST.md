@@ -1,15 +1,17 @@
 # Week 2 Execution Checklist (Day-by-Day)
 
 Use this checklist as your second execution sprint.
+Execution method reference:
+- `docs/WEEK-02-INSTRUCTOR-MODE.md`
 
 ## Day 1 - Real model integration (Ollama)
-- [ ] Implement real `OllamaLLMProvider` behind existing provider interface
-- [ ] Add configuration switch for provider selection (real vs stub fallback)
-- [ ] Wire support draft path to real provider in default local mode
-- [ ] Validate `/v1/support/draft` response path with live Ollama runtime
+- [x] Implement real `OllamaLLMProvider` behind existing provider interface
+- [x] Add configuration switch for provider selection (real vs stub fallback)
+- [x] Wire support draft path to real provider in default local mode
+- [x] Validate `/v1/support/draft` response path with live Ollama runtime
 
 Exit criteria:
-- Support draft flow uses real model path successfully in local runtime.
+- [x] Support draft flow uses real model path successfully in local runtime.
 
 ## Day 2 - Postgres persistence path
 - [ ] Add repository layer for draft/review/audit persistence

@@ -21,6 +21,7 @@ from app.schemas import (
     SupportReviewResponse,
 )
 from app.metrics import InMemoryMetrics
+from app.llm_provider import LLMProvider, OllamaLLMProvider, StubLLMProvider
 metrics = InMemoryMetrics()
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 
@@ -29,12 +30,23 @@ configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
 retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
+def build_llm_provider() -> LLMProvider:
+    if settings.llm_provider == "ollama":
+        return OllamaLLMProvider(
+            base_url=settings.ollama_base_url,
+            timeout_seconds=settings.ollama_timeout_seconds,
+        )
+    if settings.llm_provider == "stub":
+        return StubLLMProvider()
+    raise ValueError(f"Unsupported llm_provider: {settings.llm_provider}")
+
+llm_provider = build_llm_provider()
+
 orchestrator = CopilotOrchestrator(
     settings=settings,
     retriever=retriever,
-    llm_provider=StubLLMProvider(),
+    llm_provider=llm_provider,
 )
-
 @app.middleware("http")
 async def request_lifecycle_logger(request: Request, call_next):
     request_id = str(uuid4())
@@ -72,7 +84,10 @@ def health() -> dict[str, str]:
 
 @app.post("/v1/support/draft", response_model=SupportDraftResponse)
 def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
-    result = orchestrator.draft_reply(payload)
+    try:
+        result = orchestrator.draft_reply(payload)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     metrics.record_support_draft(requires_human_review=result.requires_human_review)
     return result
 

@@ -9,6 +9,7 @@ from app.schemas import SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 from app.confidence import compute_answer_confidence
 from app.review_policy import evaluate_review_policy
+from app.llm_provider import LLMProvider
 
 logger = logging.getLogger("support_copilot.orchestrator")
 
@@ -28,7 +29,7 @@ class CopilotOrchestrator:
         *,
         settings: Settings,
         retriever: StubRetriever,
-        llm_provider: StubLLMProvider,
+        llm_provider: LLMProvider,
     ) -> None:
         self._settings = settings
         self._retriever = retriever
