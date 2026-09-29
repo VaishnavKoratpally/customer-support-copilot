@@ -4,11 +4,11 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from app.config import get_settings
 from app.logging_utils import configure_logging, log_event
-from app.llm_provider import StubLLMProvider
 from app.orchestrator import CopilotOrchestrator
 from app.review_workflow import apply_review_decision
 from app.retriever import StubRetriever
 from app.ingestion import IngestionPreviewPipeline
+from app.persistence import PersistenceError, PostgresSupportRepository, SupportRepository
 from app.schemas import (
     IngestionPreviewRequest,
     IngestionPreviewResponse,
@@ -22,6 +22,7 @@ from app.schemas import (
 )
 from app.metrics import InMemoryMetrics
 from app.llm_provider import LLMProvider, OllamaLLMProvider, StubLLMProvider
+
 metrics = InMemoryMetrics()
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 
@@ -30,6 +31,8 @@ configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
 retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
+
+
 def build_llm_provider() -> LLMProvider:
     if settings.llm_provider == "ollama":
         return OllamaLLMProvider(
@@ -40,13 +43,24 @@ def build_llm_provider() -> LLMProvider:
         return StubLLMProvider()
     raise ValueError(f"Unsupported llm_provider: {settings.llm_provider}")
 
+
+def build_support_repository() -> SupportRepository:
+    return PostgresSupportRepository(
+        dsn=settings.postgres_dsn,
+        connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
+    )
+
+
 llm_provider = build_llm_provider()
+support_repository = build_support_repository()
 
 orchestrator = CopilotOrchestrator(
     settings=settings,
     retriever=retriever,
     llm_provider=llm_provider,
 )
+
+
 @app.middleware("http")
 async def request_lifecycle_logger(request: Request, call_next):
     request_id = str(uuid4())
@@ -88,8 +102,16 @@ def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
         result = orchestrator.draft_reply(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    try:
+        support_repository.save_support_draft(
+            draft_request=payload,
+            draft_response=result,
+        )
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     metrics.record_support_draft(requires_human_review=result.requires_human_review)
     return result
+
 
 @app.post("/v1/retrieval/query", response_model=RetrievalQueryResponse)
 def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
@@ -109,6 +131,8 @@ def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
         retrieval_confidence=retrieval.confidence,
         hits=hits,
     )
+
+
 @app.post("/v1/ingestion/preview", response_model=IngestionPreviewResponse)
 def preview_ingestion(payload: IngestionPreviewRequest) -> IngestionPreviewResponse:
     return ingestion_preview_pipeline.preview(payload)
@@ -116,9 +140,17 @@ def preview_ingestion(payload: IngestionPreviewRequest) -> IngestionPreviewRespo
 @app.post("/v1/support/review", response_model=SupportReviewResponse)
 def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse:
     try:
-        return apply_review_decision(payload)
+        review_response = apply_review_decision(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        support_repository.save_support_review(
+            review_request=payload,
+            review_response=review_response,
+        )
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return review_response
 
 @app.get("/v1/metrics")
 def get_metrics() -> dict:

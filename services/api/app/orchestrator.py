@@ -2,7 +2,6 @@ from uuid import uuid4
 import logging
 from app.logging_utils import log_event
 from app.config import Settings
-from app.llm_provider import StubLLMProvider
 from app.retriever import StubRetriever
 from app.routing import route_question
 from app.schemas import SupportDraftRequest, SupportDraftResponse
@@ -117,4 +116,3 @@ class CopilotOrchestrator:
             citation_contract_passed=citation_contract_passed,
             review_triggers=review_decision.triggers,
         )
-

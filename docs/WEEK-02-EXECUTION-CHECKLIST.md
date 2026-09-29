@@ -14,9 +14,9 @@ Exit criteria:
 - [x] Support draft flow uses real model path successfully in local runtime.
 
 ## Day 2 - Postgres persistence path
-- [ ] Add repository layer for draft/review/audit persistence
-- [ ] Persist support draft outputs with trace linkage
-- [ ] Persist support review outcomes with audit payload linkage
+- [x] Add repository layer for draft/review/audit persistence
+- [x] Persist support draft outputs with trace linkage
+- [x] Persist support review outcomes with audit payload linkage
 - [ ] Validate read/write behavior against running Postgres instance
 
 Exit criteria:

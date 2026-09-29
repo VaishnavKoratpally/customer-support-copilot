@@ -34,6 +34,46 @@ CREATE TABLE IF NOT EXISTS audit_events (
 CREATE INDEX IF NOT EXISTS idx_audit_events_ticket_created
 ON audit_events (ticket_id, created_at);
 
+CREATE TABLE IF NOT EXISTS support_draft_events (
+    trace_id TEXT PRIMARY KEY,
+    ticket_id TEXT,
+    question TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    risk_level TEXT NOT NULL CHECK (risk_level IN ('low', 'medium', 'high')),
+    model_used TEXT NOT NULL,
+    draft TEXT NOT NULL,
+    citations JSONB NOT NULL,
+    retrieval_confidence DOUBLE PRECISION NOT NULL,
+    answer_confidence DOUBLE PRECISION NOT NULL,
+    requires_human_review BOOLEAN NOT NULL,
+    escalation_reason TEXT,
+    citation_source_ids JSONB NOT NULL,
+    citation_contract_passed BOOLEAN NOT NULL,
+    review_triggers JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_draft_events_created
+ON support_draft_events (created_at);
+
+CREATE TABLE IF NOT EXISTS support_review_events (
+    id UUID PRIMARY KEY,
+    trace_id TEXT NOT NULL REFERENCES support_draft_events(trace_id) ON DELETE CASCADE,
+    reviewer_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('approve', 'edit', 'reject')),
+    ai_draft TEXT NOT NULL,
+    edited_draft TEXT,
+    final_draft TEXT NOT NULL,
+    rejection_reason_code TEXT,
+    requires_follow_up BOOLEAN NOT NULL,
+    reviewed_at TIMESTAMPTZ NOT NULL,
+    audit_event_payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_review_events_trace_created
+ON support_review_events (trace_id, created_at);
+
 CREATE TABLE IF NOT EXISTS source_documents (
     id UUID PRIMARY KEY,
     source_key TEXT NOT NULL UNIQUE,
