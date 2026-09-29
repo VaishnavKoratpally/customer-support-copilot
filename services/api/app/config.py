@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     llm_provider: Literal["ollama", "stub"] = Field(default="ollama", alias="LLM_PROVIDER")
     ollama_timeout_seconds: float = Field(default=480.0, alias="OLLAMA_TIMEOUT_SECONDS")
 
+    redis_host: str = Field(default="redis", alias="REDIS_HOST")
+    redis_port: int = Field(default=6379, alias="REDIS_PORT")
+    redis_db: int = Field(default=0, alias="REDIS_DB")
+    redis_password: str | None = Field(default=None, alias="REDIS_PASSWORD")
+    redis_idempotency_ttl_seconds: int = Field(default=900, alias="REDIS_IDEMPOTENCY_TTL_SECONDS")
+
     @property
     def postgres_dsn(self) -> str:
         user = quote_plus(self.postgres_user)

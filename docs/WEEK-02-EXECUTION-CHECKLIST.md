@@ -17,16 +17,16 @@ Exit criteria:
 - [x] Add repository layer for draft/review/audit persistence
 - [x] Persist support draft outputs with trace linkage
 - [x] Persist support review outcomes with audit payload linkage
-- [ ] Validate read/write behavior against running Postgres instance
+- [x] Validate read/write behavior against running Postgres instance
 
 Exit criteria:
 - Core support lifecycle events are persisted and queryable from Postgres.
 
 ## Day 3 - Redis practical integration
-- [ ] Choose one concrete Redis role (idempotency guard or retrieval cache)
-- [ ] Implement Redis integration on selected path
-- [ ] Add explicit fallback behavior when Redis is unavailable
-- [ ] Validate behavior with Redis up/down scenarios
+- [x] Choose one concrete Redis role (idempotency guard or retrieval cache)
+- [x] Implement Redis integration on selected path
+- [x] Add explicit fallback behavior when Redis is unavailable
+- [x] Validate behavior with Redis up/down scenarios
 
 Exit criteria:
 - Redis-backed control works and fails gracefully without unsafe behavior.

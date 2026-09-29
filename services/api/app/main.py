@@ -22,6 +22,12 @@ from app.schemas import (
 )
 from app.metrics import InMemoryMetrics
 from app.llm_provider import LLMProvider, OllamaLLMProvider, StubLLMProvider
+from redis import Redis
+from app.idempotency import (
+    IdempotencyUnavailableError,
+    RedisIdempotencyStore,
+    review_idempotency_key,
+)
 
 metrics = InMemoryMetrics()
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
@@ -32,6 +38,19 @@ logger = logging.getLogger("support_copilot.api")
 retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
 
+def build_review_idempotency_store() -> RedisIdempotencyStore:
+    redis_client = Redis(
+        host=settings.redis_host,
+        port=settings.redis_port,
+        db=settings.redis_db,
+        password=settings.redis_password,
+        decode_responses=True,
+    )
+    return RedisIdempotencyStore(
+        client=redis_client,
+        ttl_seconds=settings.redis_idempotency_ttl_seconds,
+    )
+review_idempotency_store = build_review_idempotency_store()
 
 def build_llm_provider() -> LLMProvider:
     if settings.llm_provider == "ollama":
@@ -139,6 +158,17 @@ def preview_ingestion(payload: IngestionPreviewRequest) -> IngestionPreviewRespo
 
 @app.post("/v1/support/review", response_model=SupportReviewResponse)
 def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse:
+    idempotency_key = review_idempotency_key(payload)
+    try:
+        claimed = review_idempotency_store.claim(key=idempotency_key)
+    except IdempotencyUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if not claimed:
+        raise HTTPException(
+            status_code=409,
+            detail="Duplicate review request detected; request already processed.",
+        )
     try:
         review_response = apply_review_decision(payload)
     except ValueError as exc:
