@@ -1,9 +1,8 @@
-# Retrieval smoke eval dataset
+# Evaluation datasets and runbooks
 
-Dataset file:
-- `retrieval-smoke-v1.jsonl`
+## Retrieval smoke evaluation
 
-Run evaluator from repository root:
+Dataset: `retrieval-smoke-v1.jsonl`
 
 ```powershell
 python scripts/retrieval_smoke_eval.py
@@ -16,9 +15,19 @@ python scripts/retrieval_smoke_eval.py --api-base-url http://localhost:8000
 python scripts/retrieval_smoke_eval.py --dataset docs/evals/retrieval-smoke-v1.jsonl
 ```
 
-Exit codes:
-- `0`: all cases passed
-- `1`: one or more cases failed
-- `2`: dataset parsing/input error
-- `3`: API connectivity or endpoint error
+## Support draft quality evaluations
 
+See [SUPPORT-DRAFT-EVALS-V1.md](SUPPORT-DRAFT-EVALS-V1.md) for scoring criteria, limitations, commands, exit codes, and artifact format.
+
+Datasets:
+- `groundedness-v1.jsonl`
+- `citation-correctness-v1.jsonl`
+
+Run from the repository root:
+
+```powershell
+python scripts/groundedness_eval.py
+python scripts/citation_correctness_eval.py
+```
+
+Each evaluator writes a timestamped artifact under `results/`.

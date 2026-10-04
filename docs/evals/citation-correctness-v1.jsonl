@@ -1,0 +1,3 @@
+{"id":"c-001","question":"I was charged twice for my plan. Can you help?","expected_source_ids":["billing-policy-01","support-sla-02"],"allow_extra_citations":false}
+{"id":"c-002","question":"Can I get a refund for a duplicate charge?","expected_source_ids":["billing-policy-01","support-sla-02"],"allow_extra_citations":false}
+{"id":"c-003","question":"Where can I download my invoice?","expected_source_ids":["general-help-01"],"allow_extra_citations":false}

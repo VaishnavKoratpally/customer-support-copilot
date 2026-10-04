@@ -1,0 +1,96 @@
+{
+  "evaluation": "groundedness",
+  "timestamp_utc": "2026-10-04T21:11:29.997908+00:00",
+  "api_base_url": "http://localhost:8000",
+  "dataset": "C:\\Users\\61814\\source\\repos\\customer-support-copilot\\docs\\evals\\groundedness-v1.jsonl",
+  "summary": {
+    "total_cases": 3,
+    "passed_cases": 3,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "g-001",
+      "trace_id": "d979943a-2396-4b9f-8435-f5d58a31c9b6",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": true
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "We apologize for the duplicate charge and will review it within 2 business days per our [billing-policy-01]. If confirmed, the duplicate will be reversed. As this is a billing dispute, [support-sla-02] requires human review for final resolution. Would you like us to escalate this for immediate attention?\n\nSources: [billing-policy-01], [support-sla-02]"
+    },
+    {
+      "id": "g-002",
+      "trace_id": "da82a28c-3bb6-4c92-b15c-ac35679e7062",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": true
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "We\u2019re reviewing your request under our billing policy. Duplicate charges are investigated within 2 business days and reversed if confirmed. Since this involves a billing dispute, our team will conduct a human review to resolve this. You\u2019ll receive an update once the review is complete.\n\nSources: [billing-policy-01], [support-sla-02]"
+    },
+    {
+      "id": "g-003",
+      "trace_id": "b8ed61af-f674-4c96-b48a-6e2e8b31a891",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": true
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "We\u2019ll review the duplicate charge within 2 business days per our Billing Policy (billing-policy-01). If confirmed, the duplicate amount will be reversed. Since this involves a billing dispute, our team requires human review for final resolution (support-sla-02). You\u2019ll receive an update once resolved.\n\nSources: [billing-policy-01], [support-sla-02]"
+    }
+  ]
+}

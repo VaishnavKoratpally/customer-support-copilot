@@ -1,0 +1,82 @@
+{
+  "evaluation": "citation-correctness",
+  "timestamp_utc": "2026-10-04T21:20:52.353561+00:00",
+  "api_base_url": "http://localhost:8000",
+  "dataset": "C:\\Users\\61814\\source\\repos\\customer-support-copilot\\docs\\evals\\citation-correctness-v1.jsonl",
+  "summary": {
+    "total_cases": 3,
+    "passed_cases": 3,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "c-001",
+      "trace_id": "05b37443-36bb-450f-a7c5-567a72745158",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    },
+    {
+      "id": "c-002",
+      "trace_id": "3c087ed9-5b6c-4ce0-98a2-0644a038abe7",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    },
+    {
+      "id": "c-003",
+      "trace_id": "3c43f0d2-32dd-4dfd-8874-40700640d87b",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "general-help-01"
+      ],
+      "actual_source_ids": [
+        "general-help-01"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    }
+  ]
+}

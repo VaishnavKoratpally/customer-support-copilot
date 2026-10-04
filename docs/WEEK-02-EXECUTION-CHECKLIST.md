@@ -32,10 +32,10 @@ Exit criteria:
 - Redis-backed control works and fails gracefully without unsafe behavior.
 
 ## Day 4 - Groundedness and citation correctness evaluators
-- [ ] Define groundedness eval criteria and scoring rules
-- [ ] Create `docs/evals/groundedness-v1.jsonl` and `docs/evals/citation-correctness-v1.jsonl`
-- [ ] Implement `scripts/groundedness_eval.py` and `scripts/citation_correctness_eval.py`
-- [ ] Run both evaluators and save output artifacts
+- [x] Define groundedness eval criteria and scoring rules
+- [x] Create `docs/evals/groundedness-v1.jsonl` and `docs/evals/citation-correctness-v1.jsonl`
+- [x] Implement `scripts/groundedness_eval.py` and `scripts/citation_correctness_eval.py`
+- [x] Run both evaluators and save output artifacts
 
 Exit criteria:
 - Groundedness and citation correctness are measurable via repeatable commands.
