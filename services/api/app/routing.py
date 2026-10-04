@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Literal
+from app.query_rules import is_billing_dispute_question
 
 
 RiskLevel = Literal["low", "medium", "high"]
@@ -15,13 +16,13 @@ def route_question(question: str) -> RoutingDecision:
     normalized = question.lower()
 
     high_risk_keywords = {
-        "charged twice": "billing_dispute",
-        "refund": "billing_dispute",
         "hacked": "account_security",
         "unauthorized": "account_security",
         "lawyer": "legal",
         "legal": "legal",
     }
+    if is_billing_dispute_question(question):
+        return RoutingDecision(intent="billing_dispute", risk_level="high")
     for keyword, intent in high_risk_keywords.items():
         if keyword in normalized:
             return RoutingDecision(intent=intent, risk_level="high")

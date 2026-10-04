@@ -7,6 +7,10 @@ This repository is the implementation workspace for a production-grade, free-fir
 - measurable quality via evaluation harnesses
 - architecture decisions documented with tradeoffs
 
+## Learning and collaboration approach
+
+This is also a deep-learning project in AI engineering and system design. See [Learning and Engineering Contract](docs/LEARNING-CONTRACT.md) for the guide-first workflow, scale assumptions, debugging practice, and expectations for using AI effectively.
+
 ## Current milestone
 
 Week 1 baseline scaffold:

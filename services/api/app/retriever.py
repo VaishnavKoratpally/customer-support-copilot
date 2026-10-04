@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from app.schemas import Citation
-
+from app.query_rules import is_billing_dispute_question
 
 @dataclass(frozen=True)
 class RetrievalResult:
@@ -13,9 +13,7 @@ class StubRetriever:
     """Week 1 placeholder retriever with deterministic outputs."""
 
     def retrieve(self, question: str, top_k: int = 3) -> RetrievalResult:
-        normalized = question.lower()
-
-        if "charged twice" in normalized or "refund" in normalized:
+        if is_billing_dispute_question(question):
             return RetrievalResult(
                 citations=[
                     Citation(
