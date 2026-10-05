@@ -65,9 +65,9 @@ class OllamaLLMProvider:
             "system": system_prompt,
             "prompt": user_prompt,
             "stream": False,
-            "think": True,
+            "think": False,
             "options": {
-                "num_predict": 512
+                "num_predict": 64
             },
         }
 

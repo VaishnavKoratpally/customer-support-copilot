@@ -94,10 +94,33 @@ async def request_lifecycle_logger(request: Request, call_next):
         path=request.url.path,
     )
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        metrics.record_http_request(
+            path=request.url.path,
+            status_code=500,
+            duration_ms=duration_ms,
+        )
+        log_event(
+            logger,
+            "request_finished",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status_code=500,
+            duration_ms=duration_ms,
+            error_type=type(exc).__name__,
+        )
+        raise
 
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    metrics.record_http_request(status_code=response.status_code, duration_ms=duration_ms)
+    metrics.record_http_request(
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+    )
     log_event(
         logger,
         "request_finished",

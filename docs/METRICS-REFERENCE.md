@@ -39,7 +39,7 @@ Returns a JSON snapshot of in-memory counters and latency summaries.
 ### Support workflow metrics
 
 - `support_draft_total`  
-  Number of `/v1/support/draft` responses emitted.
+  Number of support drafts successfully generated and persisted.
 
 - `support_human_review_total`  
   Number of support drafts that required human review.
@@ -49,6 +49,16 @@ Returns a JSON snapshot of in-memory counters and latency summaries.
   Proxy for escalation pressure and draft confidence behavior.
 
 ---
+
+### Support-draft request metrics
+
+- `support_draft_request_total`: HTTP requests observed at `/v1/support/draft`, including failures.
+- `support_draft_request_error_total`: Draft-route requests with HTTP status `>= 500`.
+- `support_draft_request_error_rate`: Draft-route error count divided by draft-route request count.
+- `support_draft_request_latency_p50_ms` and `support_draft_request_latency_p95_ms`: Middleware-measured latency for the draft route, including generation and persistence.
+
+These metrics are process-local. The latency percentiles use the most recent 5,000 samples and reset when the API process restarts. Use the draft-specific latency fields for draft SLO comparisons, not the all-route latency fields.
+
 
 ## Example response
 
@@ -63,3 +73,4 @@ Returns a JSON snapshot of in-memory counters and latency summaries.
   "support_human_review_total": 7,
   "support_human_review_rate": 0.5833
 }
+```
