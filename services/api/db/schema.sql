@@ -76,7 +76,7 @@ ON support_review_events (trace_id, created_at);
 
 CREATE TABLE IF NOT EXISTS source_documents (
     id UUID PRIMARY KEY,
-    source_key TEXT NOT NULL UNIQUE,
+    source_key TEXT NOT NULL,
     title TEXT NOT NULL,
     doc_type TEXT NOT NULL,
     product_area TEXT NOT NULL,
@@ -85,16 +85,31 @@ CREATE TABLE IF NOT EXISTS source_documents (
     access_scope TEXT NOT NULL CHECK (access_scope IN ('public', 'internal', 'restricted')),
     raw_content TEXT NOT NULL,
     checksum_sha256 TEXT NOT NULL,
+    embedding_model TEXT NOT NULL DEFAULT 'untracked',
+    embedding_model_digest TEXT NOT NULL DEFAULT 'untracked',
+    embedding_dimension SMALLINT NOT NULL DEFAULT 1024,
+    chunker_version TEXT NOT NULL DEFAULT 'legacy-unknown',
+    chunk_target_tokens INTEGER,
+    chunk_overlap_tokens INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT source_documents_embedding_dimension_check CHECK (embedding_dimension = 1024),
+    CONSTRAINT source_documents_chunk_target_tokens_check
+        CHECK (chunk_target_tokens IS NULL OR chunk_target_tokens > 0),
+    CONSTRAINT source_documents_chunk_overlap_tokens_check
+        CHECK (chunk_overlap_tokens IS NULL OR chunk_overlap_tokens >= 0),
+    CONSTRAINT source_documents_source_key_policy_version_key
+        UNIQUE (source_key, policy_version)
 );
 
 CREATE TABLE IF NOT EXISTS document_chunks (
     id UUID PRIMARY KEY,
     document_id UUID NOT NULL REFERENCES source_documents(id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL,
+    section_path TEXT NOT NULL DEFAULT 'legacy-unknown',
     chunk_text TEXT NOT NULL,
     token_estimate INTEGER NOT NULL CHECK (token_estimate > 0),
+    chunk_checksum_sha256 TEXT,
     embedding vector(1024) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (document_id, chunk_index)
@@ -102,10 +117,6 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document
 ON document_chunks (document_id, chunk_index);
-
-CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding
-ON document_chunks USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
 
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$

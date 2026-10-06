@@ -30,11 +30,15 @@ Exit evidence: versioned source documents and a reviewed evaluation dataset are 
 
 Learning focus: embeddings, chunking, vector dimensions, similarity measures, and metadata/versioning tradeoffs.
 
+- Preserve policy history: `(source_key, policy_version)` identifies an immutable source version; changing source content or policy metadata requires a new version.
+- Use exact cosine search for the small Week 3 corpus; defer approximate vector indexes until corpus size and measured latency justify them.
 - [ ] Read the relevant [Ollama API documentation](https://github.com/ollama/ollama/blob/main/docs/api.md) and [pgvector documentation](https://github.com/pgvector/pgvector).
-- [ ] Choose and record a local embedding model, its version, and vector dimension.
-- [ ] Chunk the selected documents and preserve stable source/version/chunk IDs, checksums, effective dates, and access-scope metadata.
-- [ ] Store embeddings in PostgreSQL/pgvector with idempotent ingestion behavior.
-- [ ] Test re-ingestion, document updates, and embedding-dimension mismatch handling.
+- [x] Choose and record a local embedding model, its version, and vector dimension: Ollama `qwen3-embedding:0.6b` (digest `ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d`), 1024 dimensions confirmed by `POST /api/embed` (one-vector cold smoke test: 8.7s; not a latency benchmark).
+- [x] Chunk the selected documents and preserve stable source/version/chunk IDs, checksums, effective dates, and access-scope metadata.
+- [x] Store embeddings in PostgreSQL/pgvector with idempotent ingestion behavior.
+- [x] Test re-ingestion, document updates, and embedding-dimension mismatch handling.
+
+Implementation evidence: three synthetic sources produced eight stored vectors, each 1024-dimensional and tagged with the selected model digest. Identical re-ingestion was a no-op; same-version content changes were rejected; a new policy version was retained; and changing chunk configuration reindexed without changing the source-version ID. See [ADR-004](./adr/004-versioned-support-document-ingestion.md).
 
 Exit evidence: indexed chunks can be traced to their source document and version.
 

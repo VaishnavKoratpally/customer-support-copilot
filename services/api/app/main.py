@@ -7,9 +7,17 @@ from app.logging_utils import configure_logging, log_event
 from app.orchestrator import CopilotOrchestrator
 from app.review_workflow import apply_review_decision
 from app.retriever import StubRetriever
-from app.ingestion import IngestionPreviewPipeline
+from app.embedder import EmbeddingProviderError, OllamaEmbeddingProvider
+from app.ingestion import (
+    IngestionIndexPipeline,
+    IngestionInputError,
+    IngestionPreviewPipeline,
+)
+from app.ingestion_repository import IngestionVersionConflict, PostgresIngestionRepository
 from app.persistence import PersistenceError, PostgresSupportRepository, SupportRepository
 from app.schemas import (
+    IngestionIndexRequest,
+    IngestionIndexResponse,
     IngestionPreviewRequest,
     IngestionPreviewResponse,
     RetrievalHit,
@@ -37,6 +45,11 @@ configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
 retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
+ingestion_embedding_provider = OllamaEmbeddingProvider(
+    base_url=settings.ollama_base_url,
+    model_name=settings.embedding_model,
+    timeout_seconds=settings.embedding_timeout_seconds,
+)
 
 def build_review_idempotency_store() -> RedisIdempotencyStore:
     redis_client = Redis(
@@ -72,6 +85,14 @@ def build_support_repository() -> SupportRepository:
 
 llm_provider = build_llm_provider()
 support_repository = build_support_repository()
+ingestion_repository = PostgresIngestionRepository(
+    dsn=settings.postgres_dsn,
+    connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
+)
+ingestion_index_pipeline = IngestionIndexPipeline(
+    embedder=ingestion_embedding_provider,
+    repository=ingestion_repository,
+)
 
 orchestrator = CopilotOrchestrator(
     settings=settings,
@@ -178,6 +199,21 @@ def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
 @app.post("/v1/ingestion/preview", response_model=IngestionPreviewResponse)
 def preview_ingestion(payload: IngestionPreviewRequest) -> IngestionPreviewResponse:
     return ingestion_preview_pipeline.preview(payload)
+
+
+@app.post("/v1/ingestion/index", response_model=IngestionIndexResponse)
+def index_ingestion(payload: IngestionIndexRequest) -> IngestionIndexResponse:
+    try:
+        return ingestion_index_pipeline.index(payload)
+    except IngestionVersionConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IngestionInputError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except EmbeddingProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
 
 @app.post("/v1/support/review", response_model=SupportReviewResponse)
 def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse:

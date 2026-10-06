@@ -1,5 +1,6 @@
 from typing import Literal
 from datetime import date, datetime
+from uuid import UUID
 from pydantic import BaseModel, Field
 from app.review_taxonomy import RejectionReasonCode
 
@@ -60,18 +61,25 @@ class SourceDocumentMetadata(BaseModel):
     access_scope: Literal["public", "internal", "restricted"]
 
 
-class IngestionPreviewRequest(BaseModel):
+class IngestionDocumentRequest(BaseModel):
     metadata: SourceDocumentMetadata
     content: str = Field(min_length=50, max_length=100000)
     target_chunk_tokens: int = Field(default=450, ge=100, le=1200)
     overlap_tokens: int = Field(default=75, ge=0, le=300)
 
 
+class IngestionPreviewRequest(IngestionDocumentRequest):
+    pass
+
+
+class IngestionIndexRequest(IngestionDocumentRequest):
+    pass
+
+
 class IngestionChunkPreview(BaseModel):
     chunk_index: int
     section_path: str
     token_estimate: int
-    embedding_dimension: int
     checksum_sha256: str
     text: str
 
@@ -81,6 +89,19 @@ class IngestionPreviewResponse(BaseModel):
     total_chunks: int
     total_estimated_tokens: int
     chunks: list[IngestionChunkPreview]
+
+
+class IngestionIndexResponse(BaseModel):
+    document_id: UUID
+    source_key: str
+    policy_version: str
+    status: Literal["created", "reindexed", "unchanged"]
+    total_chunks: int
+    checksum_sha256: str
+    embedding_model: str
+    embedding_model_digest: str
+    embedding_dimension: int
+
 
 class SupportReviewRequest(BaseModel):
     trace_id: str = Field(min_length=1)
@@ -110,4 +131,3 @@ class SupportReviewResponse(BaseModel):
     requires_follow_up: bool
     reviewed_at: datetime
     audit_event_payload: ReviewAuditEventPayload
-

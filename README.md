@@ -62,34 +62,46 @@ Copy-Item .env.example .env
 docker compose up -d postgres redis ollama pgadmin
 ```
 
-3) Pull recommended models inside Ollama container:
+3) Initialize the database. Use the schema for a fresh database, or the migration when upgrading the existing Week 2 schema:
+
+```powershell
+# Fresh database
+Get-Content .\services\api\db\schema.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+
+# Existing Week 2 database
+Get-Content .\services\api\db\migrations\001_week3_versioned_embeddings.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+```
+
+4) Pull recommended models inside Ollama container:
 
 ```powershell
 docker compose exec ollama ollama pull qwen3:4b
 docker compose exec ollama ollama pull qwen3:14b
 docker compose exec ollama ollama pull qwen3:20b
-docker compose exec ollama ollama pull mxbai-embed-large
+docker compose exec ollama ollama pull qwen3-embedding:0.6b
 ```
 
-4) Start API:
+5) Start API:
 
 ```powershell
 docker compose up --build api
 ```
 
-5) Health check:
+6) Health check:
 
 ```powershell
 curl http://localhost:8000/health
 ```
 
-6) Draft endpoint sample:
+7) Draft endpoint sample:
 
 ```powershell
 curl -X POST http://localhost:8000/v1/support/draft `
   -H "Content-Type: application/json" `
   -d "{\"question\":\"I was charged twice for my plan. Can you help?\"}"
 ```
+
+Week 3 ingestion uses `qwen3-embedding:0.6b` with 1024 dimensions. `POST /v1/ingestion/preview` only chunks and hashes content; it does not generate or store vectors. `POST /v1/ingestion/index` generates embeddings and stores them. A repeated `(source_key, policy_version)` with unchanged content is a no-op; content or policy metadata changes require a new `policy_version` so older evidence remains traceable.
 
 ## Next implementation steps
 
@@ -103,3 +115,4 @@ Also review:
 - [adr/001-free-first-local-oss.md](docs/adr/001-free-first-local-oss.md)
 - [adr/002-v1-domain-scope.md](docs/adr/002-v1-domain-scope.md)
 - [adr/003-initial-data-model.md](docs/adr/003-initial-data-model.md)
+- [adr/004-versioned-support-document-ingestion.md](docs/adr/004-versioned-support-document-ingestion.md)

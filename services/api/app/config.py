@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["ollama", "stub"] = Field(default="ollama", alias="LLM_PROVIDER")
     ollama_timeout_seconds: float = Field(default=480.0, alias="OLLAMA_TIMEOUT_SECONDS")
+    embedding_model: str = Field(default="qwen3-embedding:0.6b", alias="EMBEDDING_MODEL")
+    embedding_timeout_seconds: float = Field(default=120.0, alias="EMBEDDING_TIMEOUT_SECONDS")
 
     redis_host: str = Field(default="redis", alias="REDIS_HOST")
     redis_port: int = Field(default=6379, alias="REDIS_PORT")
