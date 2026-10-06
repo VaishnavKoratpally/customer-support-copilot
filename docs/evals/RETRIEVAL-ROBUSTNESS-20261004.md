@@ -29,6 +29,14 @@ This validates deterministic rules in the stub retriever against a small, curate
 
 ## Reproduce
 From the repository root, with the API running:
+## Mandatory-review policy compliance
+
+Command, run from `services/api`:
+`python -m unittest discover -s tests -v`
+
+Result: 6 tests passed.
+
+Verified high-risk intents require review; low confidence and missing citations each trigger review; a confident, cited, low-risk case does not require review; confidence exactly at the threshold is not considered below it; and multiple applicable triggers are all reported.
 
 ```powershell
 python scripts/retrieval_smoke_eval.py

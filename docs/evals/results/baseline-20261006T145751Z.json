@@ -1,0 +1,200 @@
+{
+  "timestamp_utc": "20261006T145751Z",
+  "git_sha": "8938d01",
+  "support_draft_traffic": {
+    "enabled": true,
+    "dataset": "docs\\evals\\support-draft-traffic-v1.jsonl",
+    "preflight_metrics": {
+      "support_draft_total": 0,
+      "support_draft_request_total": 0
+    },
+    "attempted": 20,
+    "successful": 20,
+    "failed": 0,
+    "results": [
+      {
+        "case_id": "sd-001",
+        "status_code": 200,
+        "client_duration_ms": 68066.55,
+        "trace_id": "586c9e2f-7b6f-4065-8afe-b024effa110e",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-002",
+        "status_code": 200,
+        "client_duration_ms": 44272.47,
+        "trace_id": "79c32157-68cd-4336-b1cc-595cda159213",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-003",
+        "status_code": 200,
+        "client_duration_ms": 36436.35,
+        "trace_id": "9ce9b3ca-9c17-4479-9bf6-0e0e8ff5323e",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-004",
+        "status_code": 200,
+        "client_duration_ms": 29553.53,
+        "trace_id": "8228ee8f-06a1-4a61-a278-2b4cae04aa24",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-005",
+        "status_code": 200,
+        "client_duration_ms": 32147.13,
+        "trace_id": "b0bb4276-6cbf-488b-b4f4-c3c55fc49419",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-006",
+        "status_code": 200,
+        "client_duration_ms": 38782.97,
+        "trace_id": "10cc58dd-fe25-455d-82d3-6c7f2eba4c54",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-007",
+        "status_code": 200,
+        "client_duration_ms": 38255.49,
+        "trace_id": "db3dbbd0-8062-4b8a-bdf7-deaa6816792a",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-008",
+        "status_code": 200,
+        "client_duration_ms": 28937.93,
+        "trace_id": "161eea9c-2e3d-458e-b368-39227589e227",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-009",
+        "status_code": 200,
+        "client_duration_ms": 42086.62,
+        "trace_id": "b7eb8286-053b-40c1-95be-3bbbdfce94cb",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-010",
+        "status_code": 200,
+        "client_duration_ms": 35016.21,
+        "trace_id": "d51781a3-63d8-4c19-8280-f5fc35d1f90c",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-011",
+        "status_code": 200,
+        "client_duration_ms": 31393.94,
+        "trace_id": "2d2cb58b-6104-47cd-b427-845d607d23ea",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-012",
+        "status_code": 200,
+        "client_duration_ms": 36973.12,
+        "trace_id": "a9045f42-a7ad-4545-898d-81c8aeb6156e",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-013",
+        "status_code": 200,
+        "client_duration_ms": 34431.69,
+        "trace_id": "92134127-6b8e-4aea-bc16-e5356dfc3e0d",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-014",
+        "status_code": 200,
+        "client_duration_ms": 22263.83,
+        "trace_id": "3aa32ca5-0b71-4627-915f-dd852c16c64c",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-015",
+        "status_code": 200,
+        "client_duration_ms": 40917.12,
+        "trace_id": "7bcb39f7-999f-4158-9c38-ec64f0b3162d",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-016",
+        "status_code": 200,
+        "client_duration_ms": 30551.61,
+        "trace_id": "77a587c1-483f-4fa3-a59f-9d912c30af77",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-017",
+        "status_code": 200,
+        "client_duration_ms": 38623.93,
+        "trace_id": "f624fe72-a391-4388-92ac-61927a4c0d51",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-018",
+        "status_code": 200,
+        "client_duration_ms": 31036.03,
+        "trace_id": "a8488d84-0a73-44eb-a983-1c53abb85ade",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-019",
+        "status_code": 200,
+        "client_duration_ms": 27736.82,
+        "trace_id": "ef360d56-bc8e-469d-a4e5-972cc983bcb5",
+        "success": true,
+        "error": null
+      },
+      {
+        "case_id": "sd-020",
+        "status_code": 200,
+        "client_duration_ms": 30541.0,
+        "trace_id": "6c178247-ec9f-49c3-b6e2-c5759ad3a0cf",
+        "success": true,
+        "error": null
+      }
+    ]
+  },
+  "retrieval_smoke": {
+    "exit_code": 0,
+    "stdout": "\nRetrieval Smoke Eval Results\n\nid      | pass | conf | min | recall | missing_sources\n------------------------------------------------------------------------\nrq-001  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-002  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-003  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-004  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-005  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-006  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-007  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-008  | yes  | 0.82 | 0.80 | 1.00   | -\nrq-009  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-010  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-011  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-012  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-013  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-014  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-015  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-016  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-017  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-018  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-019  | yes  | 0.61 | 0.60 | 1.00   | -\nrq-020  | yes  | 0.61 | 0.60 | 1.00   | -\n\nSummary\n- Total cases: 20\n- Passed: 20\n- Failed: 0\n- Pass rate: 100.0%\n- Average recall: 1.0\n",
+    "stderr": ""
+  },
+  "service_metrics": {
+    "payload": {
+      "request_total": 88,
+      "request_error_total": 0,
+      "request_error_rate": 0.0,
+      "request_latency_p50_ms": 1.93,
+      "request_latency_p95_ms": 38775.15,
+      "support_draft_request_total": 20,
+      "support_draft_request_error_total": 0,
+      "support_draft_request_error_rate": 0.0,
+      "support_draft_request_latency_p50_ms": 35014.27,
+      "support_draft_request_latency_p95_ms": 44282.25,
+      "support_draft_total": 20,
+      "support_human_review_total": 20,
+      "support_human_review_rate": 1.0
+    },
+    "error": null
+  }
+}

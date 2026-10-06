@@ -41,19 +41,19 @@ Exit criteria:
 - Groundedness and citation correctness are measurable via repeatable commands.
 
 ## Day 5 - Retrieval robustness + policy compliance checks
-- [ ] Analyze retrieval failure cluster from Week 01 baseline
-- [ ] Improve phrase robustness in retrieval logic
-- [ ] Re-run retrieval smoke and document before/after delta
-- [ ] Run mandatory-review policy compliance checks and record pass/fail summary
+- [x] Analyze retrieval failure cluster from Week 01 baseline
+- [x] Improve phrase robustness in retrieval logic
+- [x] Re-run retrieval smoke and document before/after delta
+- [x] Run mandatory-review policy compliance checks and record pass/fail summary
 
 Exit criteria:
 - Retrieval consistency and policy compliance both show measurable improvement.
 
 ## Day 6 - Week 2 baseline capture and SLO delta report
-- [ ] Generate support-draft traffic before baseline snapshot
-- [ ] Capture Week 2 baseline artifact with non-zero `support_draft_total`
-- [ ] Compare Week 2 artifact against Week 1 baseline
-- [ ] Publish Week 2 SLO delta report with pass/watch/not-measured status
+- [x] Generate support-draft traffic before baseline snapshot
+- [x] Capture Week 2 baseline artifact with non-zero `support_draft_total`
+- [x] Compare Week 2 artifact against Week 1 baseline
+- [x] Publish Week 2 SLO delta report with pass/watch/not-measured status
 
 Exit criteria:
 - Week-over-week quality/reliability movement is explicitly documented.
