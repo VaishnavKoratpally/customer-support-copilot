@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "source_key": "billing-policy-01",
+    "title": "Synthetic Duplicate Charge Review Policy",
+    "doc_type": "support_policy",
+    "product_area": "billing",
+    "policy_version": "week3-synthetic-v1",
+    "effective_date": "2026-10-06",
+    "access_scope": "internal"
+  },
+  "content": "# SYNTHETIC TRAINING FIXTURE - NOT PRODUCTION POLICY\n\nThis document contains invented policy statements for local RAG learning only. It does not describe any real product or customer policy. Do not use it to answer real customer requests.\n\n## Duplicate charge review\n\nA reported duplicate charge is reviewed within 2 business days. If the charge is confirmed to be a duplicate, the duplicate charge is reversed. Support must not promise a reversal before the review confirms that the charge is a duplicate."
+}

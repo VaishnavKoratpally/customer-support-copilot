@@ -20,9 +20,9 @@ Replace the deterministic retrieval stub for a narrow support domain with a loca
 Learning focus: what RAG must retrieve, what the generator may claim, and when the system must abstain.
 
 - [ ] Read the introduction and architecture sections of the [RAG paper](https://arxiv.org/abs/2005.11401) and the project [support-draft evaluation guide](./evals/SUPPORT-DRAFT-EVALS-V1.md).
-- [ ] Select a small set of synthetic or approved account-recovery and billing policies.
-- [ ] Create a fixed query set containing answerable, ambiguous, and out-of-corpus questions.
-- [ ] For each case, record expected source IDs, supported facts, unsupported claims to avoid, and expected review/abstention behavior.
+- [x] Select a small set of synthetic account-recovery and billing policies.
+- [x] Create a fixed query set containing answerable, ambiguous, insufficient-evidence, and out-of-corpus questions.
+- [x] For each case, record expected retrieval and citation source IDs, supported facts, unsupported claims to avoid, and expected review/abstention behavior.
 
 Exit evidence: versioned source documents and a reviewed evaluation dataset are checked in before retrieval implementation.
 

@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "source_key": "account-recovery-01",
+    "title": "Synthetic Account Recovery Procedure",
+    "doc_type": "support_policy",
+    "product_area": "account_access",
+    "policy_version": "week3-synthetic-v1",
+    "effective_date": "2026-10-06",
+    "access_scope": "internal"
+  },
+  "content": "# SYNTHETIC TRAINING FIXTURE - NOT PRODUCTION POLICY\n\nThis document contains invented policy statements for local RAG learning only. It does not describe any real product or customer policy. Do not use it to answer real customer requests.\n\n## Password reset\n\nA user who can access the email address currently associated with their account can begin a password reset from the sign-in page by selecting Forgot password. The reset link is sent only to the email address already associated with the account.\n\nSupport must never ask a user to share a password, reset link, or one-time verification code. Support cannot disclose an existing password or bypass multi-factor authentication.\n\n## Lost access to the account email\n\nIf a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access.\n\n## Account security concerns\n\nA report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review. Do not promise that access will be restored before the required review is complete."
+}

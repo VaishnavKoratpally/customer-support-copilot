@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "source_key": "support-sla-02",
+    "title": "Synthetic Billing Dispute Review SLA",
+    "doc_type": "support_policy",
+    "product_area": "billing",
+    "policy_version": "week3-synthetic-v1",
+    "effective_date": "2026-10-06",
+    "access_scope": "internal"
+  },
+  "content": "# SYNTHETIC TRAINING FIXTURE - NOT PRODUCTION POLICY\n\nThis document contains invented policy statements for local RAG learning only. It does not describe any real product or customer policy. Do not use it to answer real customer requests.\n\n## Billing dispute resolution\n\nBilling disputes require human review for final resolution. The initial review window is not a guaranteed deadline for final resolution or for a credit to appear in a payment account. This synthetic policy does not specify a fixed final-resolution or credit-posting date."
+}
