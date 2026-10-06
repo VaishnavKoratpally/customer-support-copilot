@@ -59,10 +59,10 @@ Exit criteria:
 - Week-over-week quality/reliability movement is explicitly documented.
 
 ## Day 7 - Week 2 retrospective and Week 3 planning
-- [ ] Log 2 architecture lessons learned from Week 2
-- [ ] Record top unresolved risks and tradeoffs
-- [ ] Propose Week 3 priorities based on measured runtime + quality gaps
-- [ ] Reassess LangGraph/MCP readiness based on integration stability
+- [x] Log 2 architecture lessons learned from Week 2
+- [x] Record top unresolved risks and tradeoffs
+- [x] Propose Week 3 priorities based on measured runtime + quality gaps
+- [x] Reassess LangGraph/MCP readiness based on integration stability
 
 Exit criteria:
 - Next-week scope is evidence-driven and linked to measured outcomes.
