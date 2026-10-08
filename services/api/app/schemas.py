@@ -40,15 +40,23 @@ class RetrievalQueryRequest(BaseModel):
 
 class RetrievalHit(BaseModel):
     rank: int
+    chunk_id: UUID
     source_id: str
     title: str
+    policy_version: str
+    effective_date: date
+    access_scope: Literal["public", "internal"]
+    chunk_index: int
+    section_path: str
     excerpt: str
+    cosine_distance: float = Field(
+        description="Raw cosine distance; lower values are closer, not a confidence score."
+    )
 
 
 class RetrievalQueryResponse(BaseModel):
     query: str
     top_k: int
-    retrieval_confidence: float
     hits: list[RetrievalHit]
 
 class SourceDocumentMetadata(BaseModel):

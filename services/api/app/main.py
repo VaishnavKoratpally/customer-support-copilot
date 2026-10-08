@@ -6,7 +6,7 @@ from app.config import get_settings
 from app.logging_utils import configure_logging, log_event
 from app.orchestrator import CopilotOrchestrator
 from app.review_workflow import apply_review_decision
-from app.retriever import StubRetriever
+from app.retriever import PgVectorRetriever, StubRetriever
 from app.embedder import EmbeddingProviderError, OllamaEmbeddingProvider
 from app.ingestion import (
     IngestionIndexPipeline,
@@ -15,6 +15,10 @@ from app.ingestion import (
 )
 from app.ingestion_repository import IngestionVersionConflict, PostgresIngestionRepository
 from app.persistence import PersistenceError, PostgresSupportRepository, SupportRepository
+from app.retrieval_repository import (
+    PostgresRetrievalRepository,
+    RetrievalIndexConfigurationError,
+)
 from app.schemas import (
     IngestionIndexRequest,
     IngestionIndexResponse,
@@ -43,9 +47,9 @@ app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
-retriever = StubRetriever()
+draft_retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
-ingestion_embedding_provider = OllamaEmbeddingProvider(
+embedding_provider = OllamaEmbeddingProvider(
     base_url=settings.ollama_base_url,
     model_name=settings.embedding_model,
     timeout_seconds=settings.embedding_timeout_seconds,
@@ -89,14 +93,22 @@ ingestion_repository = PostgresIngestionRepository(
     dsn=settings.postgres_dsn,
     connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
 )
+retrieval_repository = PostgresRetrievalRepository(
+    dsn=settings.postgres_dsn,
+    connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
+)
 ingestion_index_pipeline = IngestionIndexPipeline(
-    embedder=ingestion_embedding_provider,
+    embedder=embedding_provider,
     repository=ingestion_repository,
+)
+retrieval_query_retriever = PgVectorRetriever(
+    embedder=embedding_provider,
+    repository=retrieval_repository,
 )
 
 orchestrator = CopilotOrchestrator(
     settings=settings,
-    retriever=retriever,
+    retriever=draft_retriever,
     llm_provider=llm_provider,
 )
 
@@ -178,20 +190,37 @@ def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
 
 @app.post("/v1/retrieval/query", response_model=RetrievalQueryResponse)
 def query_retrieval(payload: RetrievalQueryRequest) -> RetrievalQueryResponse:
-    retrieval = retriever.retrieve(payload.question, top_k=payload.top_k)
+    try:
+        retrieval = retrieval_query_retriever.retrieve(
+            payload.question,
+            top_k=payload.top_k,
+        )
+    except EmbeddingProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except RetrievalIndexConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     hits = [
         RetrievalHit(
             rank=index,
-            source_id=citation.source_id,
-            title=citation.title,
-            excerpt=citation.excerpt,
+            chunk_id=hit.chunk_id,
+            source_id=hit.source_id,
+            title=hit.title,
+            policy_version=hit.policy_version,
+            effective_date=hit.effective_date,
+            access_scope=hit.access_scope,
+            chunk_index=hit.chunk_index,
+            section_path=hit.section_path,
+            excerpt=hit.text,
+            cosine_distance=hit.cosine_distance,
         )
-        for index, citation in enumerate(retrieval.citations, start=1)
+        for index, hit in enumerate(retrieval.hits, start=1)
     ]
     return RetrievalQueryResponse(
         query=payload.question,
         top_k=payload.top_k,
-        retrieval_confidence=retrieval.confidence,
         hits=hits,
     )
 

@@ -212,7 +212,7 @@ def main() -> int:
         "timestamp_utc": timestamp,
         "git_sha": git_sha,
         "support_draft_traffic": draft_traffic,
-        "retrieval_smoke": {
+        "retrieval_evaluation": {
             "exit_code": retrieval_proc.returncode,
             "stdout": retrieval_proc.stdout,
             "stderr": retrieval_proc.stderr,
@@ -228,7 +228,7 @@ def main() -> int:
 
     print(f"Baseline artifact saved: {out_file}")
     print(f"Support draft traffic: {successful_drafts}/{len(draft_traffic_results)} succeeded")
-    print(f"Retrieval smoke exit code: {retrieval_proc.returncode}")
+    print(f"Retrieval diagnostic exit code: {retrieval_proc.returncode}")
 
     if metrics_error:
         print(f"Metrics fetch error: {metrics_error}")

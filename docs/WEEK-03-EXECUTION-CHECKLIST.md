@@ -46,11 +46,13 @@ Exit evidence: indexed chunks can be traced to their source document and version
 
 Learning focus: query embeddings, top-k retrieval, metadata filters, and evidence sufficiency.
 
-- [ ] Embed a query and retrieve the nearest eligible chunks from pgvector.
-- [ ] Replace the runtime `StubRetriever` binding with the pgvector retriever for `/v1/support/draft` and `/v1/retrieval/query`, while retaining the stub as a test fixture.
+- [x] Implement query embedding and exact pgvector search for `/v1/retrieval/query`, returning raw cosine distances and source-version metadata.
+- [ ] Wire the real retriever into `/v1/support/draft` after evidence-sufficiency and confidence/abstention behavior are defined; retain `StubRetriever` for deterministic tests, not as a user-facing fallback.
 - [ ] Return citations from retrieved chunk metadata, not hard-coded source lists.
 - [ ] Define behavior for empty or weak evidence: ask a clarifying question, abstain, or require human review.
 - [ ] Add endpoint-level tests proving `/v1/support/draft` receives real retrieved chunks and citations, plus tests for filtering and no-evidence behavior. Out-of-scope requests must not silently fall back to static stub evidence.
+
+Implementation evidence for the first retrieval slice: `/v1/retrieval/query` now embeds each question and performs exact cosine search over the latest effective `public` and `internal` policy versions. It returns the raw distance and source/chunk metadata; it does not return a confidence score or decide evidence sufficiency. Ambiguous same-date versions and model/digest mismatches fail explicitly. `/v1/support/draft` remains on `StubRetriever` until its evidence and confidence behavior is designed.
 
 Exit evidence: `/v1/support/draft` uses retrieved source chunks for the selected domains and does not fabricate or fall back to a source when evidence is absent.
 
