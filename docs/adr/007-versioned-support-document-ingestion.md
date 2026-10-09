@@ -1,4 +1,4 @@
-# ADR-004: Versioned support-document ingestion
+# ADR-007: Versioned support-document ingestion
 
 Date: 2026-10-06  
 Status: Accepted

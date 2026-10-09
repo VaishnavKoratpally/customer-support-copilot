@@ -115,4 +115,5 @@ Also review:
 - [adr/001-free-first-local-oss.md](docs/adr/001-free-first-local-oss.md)
 - [adr/002-v1-domain-scope.md](docs/adr/002-v1-domain-scope.md)
 - [adr/003-initial-data-model.md](docs/adr/003-initial-data-model.md)
-- [adr/004-versioned-support-document-ingestion.md](docs/adr/004-versioned-support-document-ingestion.md)
+- [adr/007-versioned-support-document-ingestion.md](docs/adr/007-versioned-support-document-ingestion.md)
+- [adr/008-claim-level-evidence-assessment.md](docs/adr/008-claim-level-evidence-assessment.md)
