@@ -155,6 +155,7 @@ def save_artifact(
     dataset: Path,
     api_base_url: str,
     results: list[dict],
+    warm_up_requests: int,
     output_path: Path | None,
 ) -> Path:
     timestamp = datetime.now(timezone.utc)
@@ -174,6 +175,7 @@ def save_artifact(
         "timestamp_utc": timestamp.isoformat(),
         "dataset": str(dataset),
         "api_base_url": api_base_url.rstrip("/"),
+        "warm_up_requests": warm_up_requests,
         "top_k_values": sorted({result["top_k"] for result in results}),
         "metric_unit": "unique source IDs, not individual chunks",
         "source_recall_target": SOURCE_RECALL_TARGET,
@@ -272,6 +274,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--warm-up",
+        action="store_true",
+        help=(
+            "Make one unscored request using the first case before collecting "
+            "measurements, to warm the embedding model."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help=(
@@ -309,7 +319,36 @@ def main() -> int:
             return 2
 
     results: list[dict] = []
+    warm_up_requests = 0
     try:
+        if args.warm_up:
+            first_case = cases[0]
+            first_top_k = (
+                args.top_k_values[0]
+                if args.top_k_values is not None
+                else first_case.get("top_k")
+            )
+            if (
+                isinstance(first_top_k, bool)
+                or not isinstance(first_top_k, int)
+                or first_top_k < 1
+            ):
+                raise ValueError(
+                    f"Case {first_case.get('id', '<unknown>')} must define top_k "
+                    "as a positive integer for warm-up."
+                )
+            first_question = first_case.get("question")
+            if not isinstance(first_question, str) or not first_question.strip():
+                raise ValueError(
+                    f"Case {first_case.get('id', '<unknown>')} must define a non-empty question."
+                )
+            call_retrieval(
+                api_base_url=args.api_base_url,
+                question=first_question,
+                top_k=first_top_k,
+            )
+            warm_up_requests = 1
+
         for case in cases:
             case_top_k = case.get("top_k")
             if (
@@ -345,6 +384,7 @@ def main() -> int:
             dataset=dataset,
             api_base_url=args.api_base_url,
             results=results,
+            warm_up_requests=warm_up_requests,
             output_path=args.output,
         )
     except OSError:

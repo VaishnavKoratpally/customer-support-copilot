@@ -79,8 +79,9 @@ Exit evidence: `/v1/support/draft` uses retrieved source chunks for the selected
 Learning focus: retrieval recall is not the same as answer groundedness; citation IDs are not claim entailment.
 
 - [x] Measure retrieval Recall@k against the labeled query set.
+- [x] Sweep cosine-distance cutoffs as a source-presence diagnostic only; do not treat distance as answer confidence.
 - [ ] Measure citation correctness separately from groundedness.
-- [ ] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
+- [x] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
 - [ ] Check that unsupported questions trigger the defined safe behavior and high-risk cases still require review.
 - [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
 
@@ -94,6 +95,22 @@ setting decision. Both out-of-corpus questions still returned nearest
 neighbors, so these retrieval metrics do not demonstrate answerability or safe
 abstention. No evidence cutoff is applied. See the
 [retrieval evaluation artifact](./evals/results/retrieval-smoke-20261010T220934Z.json).
+
+Distance-cutoff diagnostic (2026-10-10): after one unscored warm-up request,
+the k=1 distances were swept against the dataset's expected-source labels. An
+in-sample cutoff of 0.472662 separated all 10 cases with expected sources from
+the two cases without one. This is not a calibrated result: the cutoff was
+evaluated on the same 12 cases, and a single false accept would change the
+no-source error rate by 50 percentage points. Most importantly, source presence
+is not answerability: the reset-expiry case has an expected account-recovery
+source, but that source does not state an expiry duration. No cutoff was
+selected or added to the API. See the [warm retrieval run](./evals/results/retrieval-smoke-threshold-20261010T224232Z.json)
+and [offline cutoff sweep](./evals/results/retrieval-distance-threshold-20261010T224246Z.json).
+
+Risk preference (2026-10-10): false accepts are considered costlier than false
+rejects, so a future evidence gate should favor conservative human escalation
+when retrieval is uncertain. This is an evaluation preference, not a numeric
+cutoff or authorization for automatic rejection.
 
 Exit evidence: report results against existing targets (retrieval recall >= 0.75, groundedness >= 0.90, citation correctness >= 0.95) and clearly document any misses.
 

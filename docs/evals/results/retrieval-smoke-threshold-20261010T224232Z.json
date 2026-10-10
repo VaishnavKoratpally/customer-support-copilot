@@ -1,0 +1,214 @@
+{
+  "evaluation": "week3-vector-retrieval",
+  "timestamp_utc": "2026-10-10T22:42:40.966684+00:00",
+  "dataset": "/evaluation/docs/evals/rag-week3-v1.jsonl",
+  "api_base_url": "http://host.docker.internal:8000",
+  "warm_up_requests": 1,
+  "top_k_values": [
+    1
+  ],
+  "metric_unit": "unique source IDs, not individual chunks",
+  "source_recall_target": 0.75,
+  "summary_by_top_k": {
+    "1": {
+      "total_cases": 12,
+      "cases_with_expected_sources": 10,
+      "cases_without_expected_sources": 2,
+      "mean_source_recall_at_k": 0.85,
+      "mean_unique_source_precision_at_k": 1.0,
+      "source_recall_target": 0.75,
+      "source_recall_target_met": true
+    }
+  },
+  "results": [
+    {
+      "id": "ar-001-password-reset-supported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.426882
+    },
+    {
+      "id": "ar-002-reset-link-expiry-unsupported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.297277
+    },
+    {
+      "id": "ar-003-lost-account-email-supported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.176959
+    },
+    {
+      "id": "ar-004-mfa-bypass-security-review",
+      "top_k": 1,
+      "expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.318058
+    },
+    {
+      "id": "bi-001-duplicate-charge-supported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01"
+      ],
+      "missing_source_ids": [
+        "support-sla-02"
+      ],
+      "non_expected_source_ids": [],
+      "recall_at_k": 0.5,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.346046
+    },
+    {
+      "id": "bi-002-initial-review-window-supported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "billing-policy-01"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.162119
+    },
+    {
+      "id": "bi-003-final-resolution-review-supported",
+      "top_k": 1,
+      "expected_source_ids": [
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.304207
+    },
+    {
+      "id": "ar-005-ambiguous-account-access",
+      "top_k": 1,
+      "expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [],
+      "recall_at_k": 1.0,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.442634
+    },
+    {
+      "id": "bi-004-ambiguous-billing-request",
+      "top_k": 1,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "support-sla-02"
+      ],
+      "missing_source_ids": [
+        "billing-policy-01"
+      ],
+      "non_expected_source_ids": [],
+      "recall_at_k": 0.5,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.458751
+    },
+    {
+      "id": "bi-005-credit-posting-date-partial-evidence",
+      "top_k": 1,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "support-sla-02"
+      ],
+      "missing_source_ids": [
+        "billing-policy-01"
+      ],
+      "non_expected_source_ids": [],
+      "recall_at_k": 0.5,
+      "source_precision_at_k": 1.0,
+      "nearest_cosine_distance": 0.333941
+    },
+    {
+      "id": "oc-001-invoice-download-not-in-corpus",
+      "top_k": 1,
+      "expected_source_ids": [],
+      "actual_source_ids": [
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [
+        "support-sla-02"
+      ],
+      "recall_at_k": null,
+      "source_precision_at_k": null,
+      "nearest_cosine_distance": 0.529551
+    },
+    {
+      "id": "oc-002-sso-setup-not-in-corpus",
+      "top_k": 1,
+      "expected_source_ids": [],
+      "actual_source_ids": [
+        "account-recovery-01"
+      ],
+      "missing_source_ids": [],
+      "non_expected_source_ids": [
+        "account-recovery-01"
+      ],
+      "recall_at_k": null,
+      "source_precision_at_k": null,
+      "nearest_cosine_distance": 0.486572
+    }
+  ]
+}

@@ -11,7 +11,8 @@ docker compose run --rm --no-deps -T `
   api python /evaluation/scripts/retrieval_smoke_eval.py `
     --dataset /evaluation/docs/evals/rag-week3-v1.jsonl `
     --api-base-url http://host.docker.internal:8000 `
-    --top-k-values 1 2 3
+    --top-k-values 1 2 3 `
+    --warm-up
 ```
 
 The diagnostic reports source Recall@k and unique-source precision@k for cases
@@ -25,10 +26,48 @@ The `--top-k-values` sweep runs the same labeled questions at each requested
 value, isolating the effect of `top_k`; omit it to use each case's dataset
 setting. The evaluator writes a timestamped JSON artifact under
 `docs/evals/results/`, including per-case results and summaries by `top_k`.
-Pass `--output <path>` to choose a different artifact path. The running API
-must be reachable on host port `8000`.
+`--warm-up` makes one unscored request before measurements and records that in
+the artifact; use it when analyzing cosine distances. Pass `--output <path>` to
+choose a different artifact path. The running API must be reachable on host
+port `8000`.
 `retrieval-smoke-v1.jsonl` is a legacy stub-era dataset and is not compatible
 with the vector-backed endpoint.
+
+### Offline cosine-distance cutoff diagnostic
+
+This diagnostic asks only whether a case has a labeled expected source. It
+sweeps the observed cutoffs and reports false accepts and false rejects; it
+does not select or enforce a production threshold.
+
+```powershell
+$retrievalArtifactName = "retrieval-smoke-threshold-$([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')).json"
+
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/retrieval_smoke_eval.py `
+    --dataset /evaluation/docs/evals/rag-week3-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000 `
+    --top-k-values 1 `
+    --warm-up `
+    --output "/evaluation/docs/evals/results/$retrievalArtifactName"
+
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/retrieval_distance_threshold_eval.py `
+    --retrieval-artifact "/evaluation/docs/evals/results/$retrievalArtifactName" `
+    --dataset /evaluation/docs/evals/rag-week3-v1.jsonl `
+    --top-k 1
+```
+
+The positive label means that the dataset names at least one expected
+retrieval source. That is **not** the same as having enough evidence to answer:
+for example, the reset-link-expiry case has an expected account-recovery source,
+but that source does not specify the expiry duration. Raw cosine distance is a
+retrieval signal, not answer confidence. This small dataset has only two cases
+with no expected source, so an apparently clean cutoff is exploratory and must
+not be treated as calibrated or production-ready.
 
 ## Support draft quality evaluations
 
