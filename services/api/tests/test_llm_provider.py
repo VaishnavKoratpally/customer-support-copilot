@@ -1,0 +1,106 @@
+import json
+import unittest
+from unittest.mock import patch
+
+from app.llm_provider import OllamaLLMProvider, OllamaProviderError
+
+
+class FakeResponse:
+    def __init__(self, payload: object) -> None:
+        self._body = json.dumps(payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
+
+    def read(self) -> bytes:
+        return self._body
+
+
+class OllamaLLMProviderTests(unittest.TestCase):
+    def setUp(self):
+        self.provider = OllamaLLMProvider(
+            base_url="http://ollama:11434",
+            timeout_seconds=30,
+        )
+
+    def test_generate_structured_sends_schema_and_returns_response_text(self):
+        schema = {
+            "type": "object",
+            "properties": {"supported": {"type": "boolean"}},
+            "required": ["supported"],
+        }
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse({"response": '{"supported": true}'}),
+        ) as urlopen:
+            result = self.provider.generate_structured(
+                model_name="qwen3:4b",
+                system_prompt="Assess evidence.",
+                user_prompt="Is the claim supported?",
+                response_schema=schema,
+            )
+
+        self.assertEqual(result, '{"supported": true}')
+        request = urlopen.call_args.args[0]
+        request_payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(request.full_url, "http://ollama:11434/api/generate")
+        self.assertEqual(request_payload["format"], schema)
+        self.assertFalse(request_payload["stream"])
+        self.assertFalse(request_payload["think"])
+        self.assertEqual(request_payload["options"]["temperature"], 0)
+        self.assertEqual(request_payload["options"]["num_predict"], 1024)
+
+    def test_draft_response_keeps_existing_generation_parameters(self):
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse({"response": "Draft text"}),
+        ) as urlopen:
+            result = self.provider.draft_response(
+                question="Question",
+                intent="billing",
+                model_name="qwen3:14b",
+                system_prompt="System",
+                user_prompt="User",
+            )
+
+        self.assertEqual(result, "Draft text")
+        request = urlopen.call_args.args[0]
+        request_payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(request_payload["options"]["num_predict"], 64)
+        self.assertNotIn("format", request_payload)
+
+    def test_generate_structured_rejects_non_text_response(self):
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse({"response": {"unexpected": "object"}}),
+        ):
+            with self.assertRaisesRegex(
+                OllamaProviderError,
+                "textual response field",
+            ):
+                self.provider.generate_structured(
+                    model_name="qwen3:4b",
+                    system_prompt="Assess evidence.",
+                    user_prompt="Question",
+                    response_schema={"type": "object"},
+                )
+
+    def test_generate_structured_surfaces_timeout(self):
+        with patch("urllib.request.urlopen", side_effect=TimeoutError):
+            with self.assertRaisesRegex(
+                OllamaProviderError,
+                "request timed out",
+            ):
+                self.provider.generate_structured(
+                    model_name="qwen3:4b",
+                    system_prompt="Assess evidence.",
+                    user_prompt="Question",
+                    response_schema={"type": "object"},
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()

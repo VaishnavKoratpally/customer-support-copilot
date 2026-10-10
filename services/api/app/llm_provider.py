@@ -45,6 +45,10 @@ class StubLLMProvider:
         )
 
 
+class OllamaProviderError(RuntimeError):
+    pass
+
+
 class OllamaLLMProvider:
     def __init__(self, *, base_url: str, timeout_seconds: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
@@ -70,7 +74,31 @@ class OllamaLLMProvider:
                 "num_predict": 64
             },
         }
+        return self._generate_text(payload)
 
+    def generate_structured(
+        self,
+        *,
+        model_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        response_schema: dict[str, object],
+    ) -> str:
+        payload: dict[str, object] = {
+            "model": model_name,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": False,
+            "think": False,
+            "format": response_schema,
+            "options": {
+                "temperature": 0,
+                "num_predict": 1024,
+            },
+        }
+        return self._generate_text(payload)
+
+    def _generate_text(self, payload: dict[str, object]) -> str:
         req = urllib.request.Request(
             f"{self._base_url}/api/generate",
             data=json.dumps(payload).encode("utf-8"),
@@ -80,7 +108,7 @@ class OllamaLLMProvider:
 
         try:
             with urllib.request.urlopen(req, timeout=self._timeout_seconds) as response:
-                body = json.loads(response.read().decode("utf-8"))
+                raw_body = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             detail = f"{exc.code} {exc.reason}"
             raw_error = exc.read().decode("utf-8", errors="replace").strip()
@@ -92,19 +120,46 @@ class OllamaLLMProvider:
                 else:
                     provider_error = parsed.get("error") if isinstance(parsed, dict) else None
                     detail = f"{detail} - {provider_error}" if provider_error else f"{detail} - {raw_error}"
-            raise RuntimeError(f"Ollama HTTP error: {detail}") from exc
+            raise OllamaProviderError(f"Ollama HTTP error: {detail}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"Ollama connection error: {exc.reason}") from exc
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("Ollama returned non-JSON response.") from exc
+            raise OllamaProviderError(
+                f"Ollama connection error: {exc.reason}"
+            ) from exc
+        except TimeoutError as exc:
+            raise OllamaProviderError("Ollama request timed out.") from exc
+        except UnicodeDecodeError as exc:
+            raise OllamaProviderError(
+                "Ollama returned a response that was not valid UTF-8."
+            ) from exc
 
-        text = str(body.get("response", "")).strip()
+        try:
+            body = json.loads(raw_body)
+        except json.JSONDecodeError as exc:
+            raise OllamaProviderError("Ollama returned a non-JSON response.") from exc
+
+        if not isinstance(body, dict):
+            raise OllamaProviderError(
+                "Ollama returned a JSON response that was not an object."
+            )
+
+        raw_text = body.get("response")
+        if not isinstance(raw_text, str):
+            raise OllamaProviderError(
+                "Ollama response did not include a textual response field."
+            )
+
+        text = raw_text.strip()
         if text == "":
-            thinking_text = str(body.get("thinking", "")).strip()
+            raw_thinking_text = body.get("thinking")
+            thinking_text = (
+                raw_thinking_text.strip()
+                if isinstance(raw_thinking_text, str)
+                else ""
+            )
             if thinking_text != "":
-                raise RuntimeError(
+                raise OllamaProviderError(
                     "Ollama returned empty response text while producing thinking output; "
                     "the model likely exhausted output budget before final answer."
                 )
-            raise RuntimeError("Ollama returned empty response text.")
+            raise OllamaProviderError("Ollama returned empty response text.")
         return text

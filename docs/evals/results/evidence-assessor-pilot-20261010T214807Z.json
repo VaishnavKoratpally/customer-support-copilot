@@ -1,0 +1,392 @@
+{
+  "evaluation": "evidence-assessor-pilot",
+  "timestamp_utc": "2026-10-10T21:48:07.413480+00:00",
+  "dataset": "/evaluation/docs/evals/rag-week3-v1.jsonl",
+  "api_base_url": "http://host.docker.internal:8000",
+  "assessor_model": "qwen3:4b",
+  "scope": "Calls the retrieval endpoint and standalone evidence assessor. Does not call the support-draft endpoint or create a human-review task.",
+  "summary": {
+    "cases_attempted": 3,
+    "status_evaluated_cases": 3,
+    "status_matches": 1,
+    "status_match_rate": 0.3333,
+    "mean_source_recall_at_k": 1.0,
+    "mean_retrieval_seconds": 0.732,
+    "mean_assessment_seconds": 193.867,
+    "run_elapsed_seconds": 583.798,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "ar-002-reset-link-expiry-unsupported",
+      "question": "How long is the password reset link valid before it expires?",
+      "expected": {
+        "evidence_sufficiency": "insufficient",
+        "expected_action": "state_duration_not_specified_and_escalate",
+        "expected_retrieval_source_ids": [
+          "account-recovery-01"
+        ],
+        "required_answer_facts": [
+          "The source does not specify a reset-link expiry duration."
+        ],
+        "claims_to_avoid": [
+          "Any specific reset-link expiry duration."
+        ],
+        "human_review_required": true
+      },
+      "retrieval": {
+        "expected_source_ids": [
+          "account-recovery-01"
+        ],
+        "actual_source_ids": [
+          "account-recovery-01"
+        ],
+        "missing_source_ids": [],
+        "other_retrieved_source_ids": [],
+        "source_recall_at_k": 1.0,
+        "elapsed_seconds": 0.98,
+        "chunks": [
+          {
+            "chunk_id": "740631e4-e0df-545c-852c-cfb58641f75f",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 2,
+            "section_path": "Password reset",
+            "text": "A user who can access the email address currently associated with their account can begin a password reset from the sign-in page by selecting Forgot password. The reset link is sent only to the email address already associated with the account. Support must never ask a user to share a password, reset link, or one-time verification code. Support cannot disclose an existing password or bypass multi-factor authentication.",
+            "cosine_distance": 0.29727714446799725
+          },
+          {
+            "chunk_id": "d8877785-ffde-5366-b33f-9fe477c19fc3",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 4,
+            "section_path": "Account security concerns",
+            "text": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review. Do not promise that access will be restored before the required review is complete.",
+            "cosine_distance": 0.4352833397209417
+          },
+          {
+            "chunk_id": "ca2bcc54-1830-5077-856e-efdb524bdea8",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 3,
+            "section_path": "Lost access to the account email",
+            "text": "If a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access.",
+            "cosine_distance": 0.45026230671657275
+          }
+        ]
+      },
+      "assessment": {
+        "status": "none",
+        "action": "abstain_and_escalate",
+        "requested_information": [
+          {
+            "requested_information": "password-reset link expiry duration",
+            "finding": "no_relevant_evidence",
+            "answer": null,
+            "evidence": []
+          }
+        ],
+        "supporting_facts": [],
+        "clarifying_question": null
+      },
+      "checks": {
+        "status_matches_expected": false,
+        "assessment_contract_validation_passed": true
+      },
+      "latency": {
+        "retrieval_seconds": 0.98,
+        "assessment_seconds": 37.61,
+        "case_total_seconds": 38.59
+      },
+      "manual_review": {
+        "requested_information_coverage_correct": null,
+        "answer_matches_evidence": null,
+        "answer_is_declarative": null,
+        "required_answer_facts_covered": null,
+        "unsupported_claims_present": null,
+        "recommended_action_appropriate": null,
+        "notes": ""
+      }
+    },
+    {
+      "id": "bi-005-credit-posting-date-partial-evidence",
+      "question": "I was charged twice. Will the credit appear in my account within 2 business days?",
+      "expected": {
+        "evidence_sufficiency": "partial",
+        "expected_action": "distinguish_review_window_from_credit_posting_and_review",
+        "expected_retrieval_source_ids": [
+          "billing-policy-01",
+          "support-sla-02"
+        ],
+        "required_answer_facts": [
+          "The initial review takes up to 2 business days.",
+          "A confirmed duplicate charge is reversed.",
+          "The review window does not guarantee the final-resolution or credit-posting date."
+        ],
+        "claims_to_avoid": [
+          "The credit will appear within 2 business days.",
+          "A reversal is guaranteed before confirmation."
+        ],
+        "human_review_required": true
+      },
+      "retrieval": {
+        "expected_source_ids": [
+          "billing-policy-01",
+          "support-sla-02"
+        ],
+        "actual_source_ids": [
+          "account-recovery-01",
+          "billing-policy-01",
+          "support-sla-02"
+        ],
+        "missing_source_ids": [],
+        "other_retrieved_source_ids": [
+          "account-recovery-01"
+        ],
+        "source_recall_at_k": 1.0,
+        "elapsed_seconds": 0.575,
+        "chunks": [
+          {
+            "chunk_id": "a4f34b41-154e-5177-8a97-d38ab453bcb5",
+            "source_id": "support-sla-02",
+            "title": "Synthetic Billing Dispute Review SLA",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 2,
+            "section_path": "Billing dispute resolution",
+            "text": "Billing disputes require human review for final resolution. The initial review window is not a guaranteed deadline for final resolution or for a credit to appear in a payment account. This synthetic policy does not specify a fixed final-resolution or credit-posting date.",
+            "cosine_distance": 0.333941400105482
+          },
+          {
+            "chunk_id": "57ccfa64-1cd3-51c0-bec7-63b569a5aceb",
+            "source_id": "billing-policy-01",
+            "title": "Synthetic Duplicate Charge Review Policy",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 2,
+            "section_path": "Duplicate charge review",
+            "text": "A reported duplicate charge is reviewed within 2 business days. If the charge is confirmed to be a duplicate, the duplicate charge is reversed. Support must not promise a reversal before the review confirms that the charge is a duplicate.",
+            "cosine_distance": 0.4101829880366834
+          },
+          {
+            "chunk_id": "d8877785-ffde-5366-b33f-9fe477c19fc3",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 4,
+            "section_path": "Account security concerns",
+            "text": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review. Do not promise that access will be restored before the required review is complete.",
+            "cosine_distance": 0.6036031487825346
+          }
+        ]
+      },
+      "assessment": {
+        "status": "partial",
+        "action": "draft_determined_claims_and_escalate",
+        "requested_information": [
+          {
+            "requested_information": "credit-posting timing after duplicate charge review",
+            "finding": "related_but_not_supported",
+            "answer": null,
+            "evidence": [
+              {
+                "chunk_id": "a4f34b41-154e-5177-8a97-d38ab453bcb5",
+                "quote": "Billing disputes require human review for final resolution. The initial review window is not a guaranteed deadline for final resolution or for a credit to appear in a payment account. This synthetic policy does not specify a fixed final-resolution or credit-posting date."
+              }
+            ]
+          }
+        ],
+        "supporting_facts": [
+          {
+            "claim": "A reported duplicate charge is reviewed within 2 business days.",
+            "finding": "supported",
+            "evidence": [
+              {
+                "chunk_id": "57ccfa64-1cd3-51c0-bec7-63b569a5aceb",
+                "quote": "A reported duplicate charge is reviewed within 2 business days. If the charge is confirmed to be a duplicate, the duplicate charge is reversed. Support must not promise a reversal before the review confirms that the charge is a duplicate."
+              }
+            ]
+          },
+          {
+            "claim": "The initial review window is not a guaranteed deadline for final resolution or for a credit to appear in a payment account.",
+            "finding": "supported",
+            "evidence": [
+              {
+                "chunk_id": "a4f34b41-154e-5177-8a97-d38ab453bcb5",
+                "quote": "Billing disputes require human review for final resolution. The initial review window is not a guaranteed deadline for final resolution or for a credit to appear in a payment account. This synthetic policy does not specify a fixed final-resolution or credit-posting date."
+              }
+            ]
+          }
+        ],
+        "clarifying_question": null
+      },
+      "checks": {
+        "status_matches_expected": true,
+        "assessment_contract_validation_passed": true
+      },
+      "latency": {
+        "retrieval_seconds": 0.575,
+        "assessment_seconds": 246.347,
+        "case_total_seconds": 246.923
+      },
+      "manual_review": {
+        "requested_information_coverage_correct": null,
+        "answer_matches_evidence": null,
+        "answer_is_declarative": null,
+        "required_answer_facts_covered": null,
+        "unsupported_claims_present": null,
+        "recommended_action_appropriate": null,
+        "notes": ""
+      }
+    },
+    {
+      "id": "ar-005-ambiguous-account-access",
+      "question": "I can't get into my account. Can you fix it?",
+      "expected": {
+        "evidence_sufficiency": "clarification_needed",
+        "expected_action": "ask_clarifying_question_and_review",
+        "expected_retrieval_source_ids": [
+          "account-recovery-01"
+        ],
+        "required_answer_facts": [],
+        "claims_to_avoid": [
+          "Assume the issue is a password reset without clarifying.",
+          "Ask the user to share a password or verification code.",
+          "Promise account access before verification."
+        ],
+        "human_review_required": true
+      },
+      "retrieval": {
+        "expected_source_ids": [
+          "account-recovery-01"
+        ],
+        "actual_source_ids": [
+          "account-recovery-01"
+        ],
+        "missing_source_ids": [],
+        "other_retrieved_source_ids": [],
+        "source_recall_at_k": 1.0,
+        "elapsed_seconds": 0.64,
+        "chunks": [
+          {
+            "chunk_id": "ca2bcc54-1830-5077-856e-efdb524bdea8",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 3,
+            "section_path": "Lost access to the account email",
+            "text": "If a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access.",
+            "cosine_distance": 0.44263439686708017
+          },
+          {
+            "chunk_id": "740631e4-e0df-545c-852c-cfb58641f75f",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 2,
+            "section_path": "Password reset",
+            "text": "A user who can access the email address currently associated with their account can begin a password reset from the sign-in page by selecting Forgot password. The reset link is sent only to the email address already associated with the account. Support must never ask a user to share a password, reset link, or one-time verification code. Support cannot disclose an existing password or bypass multi-factor authentication.",
+            "cosine_distance": 0.48445839299883064
+          },
+          {
+            "chunk_id": "d8877785-ffde-5366-b33f-9fe477c19fc3",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 4,
+            "section_path": "Account security concerns",
+            "text": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review. Do not promise that access will be restored before the required review is complete.",
+            "cosine_distance": 0.49256645032263346
+          }
+        ]
+      },
+      "assessment": {
+        "status": "partial",
+        "action": "draft_determined_claims_and_escalate",
+        "requested_information": [
+          {
+            "requested_information": "account access issue resolution",
+            "finding": "related_but_not_supported",
+            "answer": null,
+            "evidence": [
+              {
+                "chunk_id": "ca2bcc54-1830-5077-856e-efdb524bdea8",
+                "quote": "If a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access."
+              }
+            ]
+          }
+        ],
+        "supporting_facts": [
+          {
+            "claim": "The user must complete human identity verification before support changes the email address or helps restore account access.",
+            "finding": "supported",
+            "evidence": [
+              {
+                "chunk_id": "ca2bcc54-1830-5077-856e-efdb524bdea8",
+                "quote": "If a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access."
+              }
+            ]
+          },
+          {
+            "claim": "Support must never ask a user to share a password, reset link, or one-time verification code.",
+            "finding": "supported",
+            "evidence": [
+              {
+                "chunk_id": "740631e4-e0df-545c-852c-cfb58641f75f",
+                "quote": "Support must never ask a user to share a password, reset link, or one-time verification code."
+              }
+            ]
+          },
+          {
+            "claim": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review.",
+            "finding": "supported",
+            "evidence": [
+              {
+                "chunk_id": "d8877785-ffde-5366-b33f-9fe477c19fc3",
+                "quote": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review."
+              }
+            ]
+          }
+        ],
+        "clarifying_question": null
+      },
+      "checks": {
+        "status_matches_expected": false,
+        "assessment_contract_validation_passed": true
+      },
+      "latency": {
+        "retrieval_seconds": 0.64,
+        "assessment_seconds": 297.645,
+        "case_total_seconds": 298.285
+      },
+      "manual_review": {
+        "requested_information_coverage_correct": null,
+        "answer_matches_evidence": null,
+        "answer_is_declarative": null,
+        "required_answer_facts_covered": null,
+        "unsupported_claims_present": null,
+        "recommended_action_appropriate": null,
+        "notes": ""
+      }
+    }
+  ]
+}

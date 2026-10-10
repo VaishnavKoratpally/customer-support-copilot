@@ -21,6 +21,10 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = Field(default="http://ollama:11434", alias="OLLAMA_BASE_URL")
     router_model: str = Field(default="qwen3:4b", alias="ROUTER_MODEL")
+    evidence_assessor_model: str = Field(
+        default="qwen3:4b",
+        alias="EVIDENCE_ASSESSOR_MODEL",
+    )
     main_model: str = Field(default="qwen3:14b", alias="MAIN_MODEL")
     escalation_model: str = Field(default="qwen3:20b", alias="ESCALATION_MODEL")
 
