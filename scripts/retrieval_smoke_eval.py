@@ -2,9 +2,12 @@ import argparse
 import json
 import math
 import sys
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+SOURCE_RECALL_TARGET = 0.75
 
 
 def load_cases(path: Path) -> list[dict]:
@@ -39,7 +42,7 @@ def call_retrieval(api_base_url: str, question: str, top_k: int) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
-def evaluate_case(case: dict, response: dict) -> dict:
+def evaluate_case(case: dict, response: dict, *, top_k: int) -> dict:
     expected = case.get("expected_retrieval_source_ids")
     if not isinstance(expected, list) or any(not isinstance(source_id, str) for source_id in expected):
         raise ValueError(
@@ -85,6 +88,7 @@ def evaluate_case(case: dict, response: dict) -> dict:
 
     return {
         "id": case.get("id", "<unknown>"),
+        "top_k": top_k,
         "expected_source_ids": sorted(expected_source_ids),
         "actual_source_ids": sorted(actual_source_ids),
         "missing_source_ids": missing_source_ids,
@@ -99,10 +103,102 @@ def evaluate_case(case: dict, response: dict) -> dict:
     }
 
 
-def print_results(results: list[dict]) -> None:
+def summarize_results(results: list[dict]) -> dict[str, dict]:
+    summaries: dict[str, dict] = {}
+    for top_k in sorted({result["top_k"] for result in results}):
+        top_k_results = [result for result in results if result["top_k"] == top_k]
+        scored_results = [
+            result for result in top_k_results if result["recall_at_k"] is not None
+        ]
+        average_recall = (
+            sum(result["recall_at_k"] for result in scored_results)
+            / len(scored_results)
+            if scored_results
+            else None
+        )
+        precision_results = [
+            result
+            for result in scored_results
+            if result["source_precision_at_k"] is not None
+        ]
+        average_precision = (
+            sum(result["source_precision_at_k"] for result in precision_results)
+            / len(precision_results)
+            if precision_results
+            else None
+        )
+        summaries[str(top_k)] = {
+            "total_cases": len(top_k_results),
+            "cases_with_expected_sources": len(scored_results),
+            "cases_without_expected_sources": len(top_k_results) - len(scored_results),
+            "mean_source_recall_at_k": (
+                round(average_recall, 4) if average_recall is not None else None
+            ),
+            "mean_unique_source_precision_at_k": (
+                round(average_precision, 4)
+                if average_precision is not None
+                else None
+            ),
+            "source_recall_target": SOURCE_RECALL_TARGET,
+            "source_recall_target_met": (
+                average_recall >= SOURCE_RECALL_TARGET
+                if average_recall is not None
+                else None
+            ),
+        }
+    return summaries
+
+
+def save_artifact(
+    *,
+    repo_root: Path,
+    dataset: Path,
+    api_base_url: str,
+    results: list[dict],
+    output_path: Path | None,
+) -> Path:
+    timestamp = datetime.now(timezone.utc)
+    if output_path is None:
+        output_path = (
+            repo_root
+            / "docs"
+            / "evals"
+            / "results"
+            / f"retrieval-smoke-{timestamp.strftime('%Y%m%dT%H%M%SZ')}.json"
+        )
+    elif not output_path.is_absolute():
+        output_path = repo_root / output_path
+
+    artifact = {
+        "evaluation": "week3-vector-retrieval",
+        "timestamp_utc": timestamp.isoformat(),
+        "dataset": str(dataset),
+        "api_base_url": api_base_url.rstrip("/"),
+        "top_k_values": sorted({result["top_k"] for result in results}),
+        "metric_unit": "unique source IDs, not individual chunks",
+        "source_recall_target": SOURCE_RECALL_TARGET,
+        "summary_by_top_k": summarize_results(results),
+        "results": results,
+    }
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(artifact, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        print(
+            f"Could not write evaluation artifact {output_path}: {exc}",
+            file=sys.stderr,
+        )
+        raise
+    return output_path
+
+
+def print_results(results: list[dict], *, artifact_path: Path) -> None:
     print("\nWeek 3 Vector Retrieval Diagnostic\n")
-    print("id                                   | Recall@k | Source P@k | other sources       | nearest distance")
-    print("-" * 112)
+    print("id                                   | k | Recall@k | Source P@k | other sources       | nearest distance")
+    print("-" * 116)
     for result in results:
         recall = (
             f"{result['recall_at_k']:.2f}"
@@ -121,43 +217,32 @@ def print_results(results: list[dict]) -> None:
         )
         print(
             f"{result['id']:<36} | "
+            f"{result['top_k']:<1} | "
             f"{recall:<8} | "
             f"{precision:<10} | "
             f"{','.join(result['non_expected_source_ids']) or '-':<20} | "
             f"{distance}"
         )
 
-    scored_results = [result for result in results if result["recall_at_k"] is not None]
-    average_recall = (
-        round(
-            sum(result["recall_at_k"] for result in scored_results)
-            / len(scored_results),
-            2,
-        )
-        if scored_results
-        else None
-    )
-    average_source_precision = (
-        round(
-            sum(result["source_precision_at_k"] for result in scored_results)
-            / len(scored_results),
-            2,
-        )
-        if scored_results
-        else None
-    )
-    unscored_count = len(results) - len(scored_results)
     print("\nSummary")
-    print(f"- Total cases: {len(results)}")
-    print(f"- Cases with expected sources: {len(scored_results)}")
-    print(f"- Average source Recall@k: {average_recall if average_recall is not None else 'n/a'}")
-    print(
-        "- Average unique-source precision@k: "
-        f"{average_source_precision if average_source_precision is not None else 'n/a'}"
-    )
-    print(f"- Cases without expected sources (distance only): {unscored_count}")
+    for top_k, summary in summarize_results(results).items():
+        recall = summary["mean_source_recall_at_k"]
+        precision = summary["mean_unique_source_precision_at_k"]
+        target_met = summary["source_recall_target_met"]
+        print(
+            f"- k={top_k}: source Recall@k="
+            f"{recall if recall is not None else 'n/a'}, "
+            "unique-source precision@k="
+            f"{precision if precision is not None else 'n/a'}, "
+            f"recall target met={target_met if target_met is not None else 'n/a'}"
+        )
+        print(
+            f"  Cases with expected sources: {summary['cases_with_expected_sources']}; "
+            f"without expected sources: {summary['cases_without_expected_sources']}"
+        )
     print("- Precision/recall use unique source IDs, not individual chunk hits.")
     print("- No evidence cutoff is applied; nearest distances and other sources are diagnostic only.")
+    print(f"Artifact: {artifact_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -176,31 +261,74 @@ def parse_args() -> argparse.Namespace:
         default="http://localhost:8000",
         help="Base URL for the API service.",
     )
+    parser.add_argument(
+        "--top-k-values",
+        type=int,
+        nargs="+",
+        metavar="K",
+        help=(
+            "Compare these top-k values on every case, changing only k. "
+            "By default, each case uses its dataset top_k."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help=(
+            "Artifact path (default: docs/evals/results/"
+            "retrieval-smoke-<UTC timestamp>.json)."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parents[1]
+    dataset = args.dataset if args.dataset.is_absolute() else repo_root / args.dataset
 
-    if not args.dataset.exists():
-        print(f"Dataset file not found: {args.dataset}", file=sys.stderr)
+    if not dataset.exists():
+        print(f"Dataset file not found: {dataset}", file=sys.stderr)
         return 2
 
     try:
-        cases = load_cases(args.dataset)
+        cases = load_cases(dataset)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
+    if args.top_k_values is not None:
+        if not args.top_k_values:
+            print("--top-k-values must include at least one value.", file=sys.stderr)
+            return 2
+        if len(set(args.top_k_values)) != len(args.top_k_values):
+            print("--top-k-values must not contain duplicates.", file=sys.stderr)
+            return 2
+        if any(top_k < 1 for top_k in args.top_k_values):
+            print("Each --top-k-values entry must be at least 1.", file=sys.stderr)
+            return 2
+
     results: list[dict] = []
     try:
         for case in cases:
-            response = call_retrieval(
-                api_base_url=args.api_base_url,
-                question=case["question"],
-                top_k=int(case["top_k"]),
-            )
-            results.append(evaluate_case(case, response))
+            case_top_k = case.get("top_k")
+            if (
+                isinstance(case_top_k, bool)
+                or not isinstance(case_top_k, int)
+                or case_top_k < 1
+            ):
+                raise ValueError(
+                    f"Case {case.get('id', '<unknown>')} must define top_k "
+                    "as a positive integer."
+                )
+            top_k_values = args.top_k_values or [case_top_k]
+            for top_k in top_k_values:
+                response = call_retrieval(
+                    api_base_url=args.api_base_url,
+                    question=case["question"],
+                    top_k=top_k,
+                )
+                results.append(evaluate_case(case, response, top_k=top_k))
     except urllib.error.HTTPError as exc:
         print(f"HTTP error from API: {exc.code} {exc.reason}", file=sys.stderr)
         return 3
@@ -211,7 +339,18 @@ def main() -> int:
         print(f"Invalid evaluation data or API response: {exc}", file=sys.stderr)
         return 2
 
-    print_results(results)
+    try:
+        artifact_path = save_artifact(
+            repo_root=repo_root,
+            dataset=dataset,
+            api_base_url=args.api_base_url,
+            results=results,
+            output_path=args.output,
+        )
+    except OSError:
+        return 2
+
+    print_results(results, artifact_path=artifact_path)
     return 0
 
 

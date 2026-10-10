@@ -58,17 +58,42 @@ Design evidence for evidence sufficiency is captured in [ADR-008](./adr/008-clai
 
 The standalone local assessor requests schema-constrained output from Ollama and validates it against the typed proposal and retrieved chunks. Unit tests cover aggregation, parsing, provider failures, duplicates, and quote validation. Initial real-model checks have not passed: Qwen3:4b returned schema-valid but incorrect assessments, including `none` despite relevant evidence and, in an experimental prompt variant, a duplicate claim with an unsupported quote-to-claim relationship. Requests with Qwen3:4b thinking enabled, Qwen3:14b, and the revised separated-claim schema exceeded 180-second, 240-second, and 180-second client timeouts, respectively. These are failure observations, not a benchmark. Do not wire the assessor into `/v1/support/draft` until labeled evaluation demonstrates acceptable claim coverage and no false-sufficient decisions.
 
+### Deferred: live draft-path integration
+
+As of 2026-10-10, keep `/v1/support/draft` on `StubRetriever`. This is an
+explicit deferral, not a completed Day 3 objective. Do not spend more time
+trying to make Qwen3:4b perfect; keep the assessor standalone while continuing
+Day 4 evaluation.
+
+Revisit the three unchecked Day 3 items after measuring retrieval and draft
+behavior and defining a human-review gate enforced by the API/client. Until
+retrieval confidence is calibrated, represent it as unknown rather than
+converting raw cosine distance into a confidence score. Day 3 remains
+incomplete until the real draft path, retrieval-backed citations, and endpoint
+tests are completed.
+
 Exit evidence: `/v1/support/draft` uses retrieved source chunks for the selected domains and does not fabricate or fall back to a source when evidence is absent.
 
 ## Day 4 — Evaluate retrieval and grounded generation
 
 Learning focus: retrieval recall is not the same as answer groundedness; citation IDs are not claim entailment.
 
-- [ ] Measure retrieval Recall@k against the labeled query set.
+- [x] Measure retrieval Recall@k against the labeled query set.
 - [ ] Measure citation correctness separately from groundedness.
 - [ ] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
 - [ ] Check that unsupported questions trigger the defined safe behavior and high-risk cases still require review.
 - [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
+
+Retrieval baseline (2026-10-10): the same 12 labeled queries were evaluated at
+k=1, 2, and 3; 10 cases have expected source IDs and two are intentionally
+out-of-corpus. Mean source Recall@k was 0.85, 1.00, and 1.00; mean unique-source
+precision@k was 1.00, 0.90, and 0.77, respectively. All three recall results
+meet the 0.75 target. On this dataset, k=2 retained the recall of k=3 with fewer
+non-expected sources; that is a dataset-specific observation, not a production
+setting decision. Both out-of-corpus questions still returned nearest
+neighbors, so these retrieval metrics do not demonstrate answerability or safe
+abstention. No evidence cutoff is applied. See the
+[retrieval evaluation artifact](./evals/results/retrieval-smoke-20261010T220934Z.json).
 
 Exit evidence: report results against existing targets (retrieval recall >= 0.75, groundedness >= 0.90, citation correctness >= 0.95) and clearly document any misses.
 

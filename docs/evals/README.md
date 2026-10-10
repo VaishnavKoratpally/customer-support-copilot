@@ -5,14 +5,13 @@
 Dataset: `rag-week3-v1.jsonl`
 
 ```powershell
-python scripts/retrieval_smoke_eval.py
-```
-
-Optional arguments:
-
-```powershell
-python scripts/retrieval_smoke_eval.py --api-base-url http://localhost:8000
-python scripts/retrieval_smoke_eval.py --dataset docs/evals/rag-week3-v1.jsonl
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/retrieval_smoke_eval.py `
+    --dataset /evaluation/docs/evals/rag-week3-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000 `
+    --top-k-values 1 2 3
 ```
 
 The diagnostic reports source Recall@k and unique-source precision@k for cases
@@ -22,6 +21,12 @@ cases labeled with no expected sources, it reports the nearest cosine distance
 and retrieved sources only; it does not classify the case as supported or
 unsupported. No confidence score or evidence cutoff is applied. Choose a cutoff
 only after inspecting and evaluating the distance distributions.
+The `--top-k-values` sweep runs the same labeled questions at each requested
+value, isolating the effect of `top_k`; omit it to use each case's dataset
+setting. The evaluator writes a timestamped JSON artifact under
+`docs/evals/results/`, including per-case results and summaries by `top_k`.
+Pass `--output <path>` to choose a different artifact path. The running API
+must be reachable on host port `8000`.
 `retrieval-smoke-v1.jsonl` is a legacy stub-era dataset and is not compatible
 with the vector-backed endpoint.
 
