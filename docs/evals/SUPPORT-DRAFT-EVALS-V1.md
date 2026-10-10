@@ -2,6 +2,22 @@
 
 These evaluators call the live `POST /v1/support/draft` endpoint. They assess draft text and citation IDs using deterministic checks; they do not use an LLM judge.
 
+## How to interpret the two metrics
+
+Citation correctness checks whether the returned source IDs match the expected
+IDs. It does not inspect the draft text, so correct citations do not prove that
+the draft's claims are supported.
+
+Groundedness v1 checks literal required and forbidden phrases, expected-source
+coverage, and the API citation contract. It is a regression heuristic, not a
+semantic support check: equivalent paraphrases can fail a literal phrase check,
+and unsupported wording not covered by a forbidden phrase can pass.
+
+The evaluators use different datasets and call the draft endpoint separately.
+Their run-level pass rates are not a paired comparison of the same drafts.
+`scripts/test_draft_quality_metrics.py` demonstrates the distinction on one
+synthetic response without calling the model.
+
 ## Groundedness criteria
 
 Dataset: `groundedness-v1.jsonl`
@@ -35,14 +51,28 @@ IDs are compared as sets, so repeated occurrences of the same source ID do not c
 
 ## Running and artifacts
 
-From the repository root, with the API and its configured dependencies running:
+From the repository root, with the API reachable on host port `8000`:
 
 ```powershell
-python scripts/groundedness_eval.py
-python scripts/citation_correctness_eval.py
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/groundedness_eval.py `
+    --dataset /evaluation/docs/evals/groundedness-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000
+
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/citation_correctness_eval.py `
+    --dataset /evaluation/docs/evals/citation-correctness-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000
 ```
 
-Each run writes a timestamped JSON artifact under `docs/evals/results/`, including per-case checks, scores, returned draft text, citation IDs, and the model used. Quality failures still produce an artifact.
+Each run writes a timestamped JSON artifact under `docs/evals/results/`.
+Groundedness artifacts include the returned draft text; citation-correctness
+artifacts record citation IDs and scores. Quality failures still produce an
+artifact.
 
 Optional arguments:
 

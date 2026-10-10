@@ -77,14 +77,29 @@ Datasets:
 - `groundedness-v1.jsonl`
 - `citation-correctness-v1.jsonl`
 
-Run from the repository root:
+The metrics answer different questions: citation correctness checks source
+IDs; groundedness v1 checks listed phrases and citation coverage. Neither is a
+semantic proof that every claim follows from the cited text. See
+[SUPPORT-DRAFT-EVALS-V1.md](SUPPORT-DRAFT-EVALS-V1.md) for criteria and
+limitations.
 
 ```powershell
-python scripts/groundedness_eval.py
-python scripts/citation_correctness_eval.py
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/groundedness_eval.py `
+    --dataset /evaluation/docs/evals/groundedness-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000
+
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/citation_correctness_eval.py `
+    --dataset /evaluation/docs/evals/citation-correctness-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000
 ```
 
-Each evaluator writes a timestamped artifact under `results/`.
+Each evaluator writes a timestamped artifact under `docs/evals/results/`.
 
 ## Claim-level evidence assessor pilot
 

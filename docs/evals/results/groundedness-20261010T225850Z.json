@@ -1,0 +1,96 @@
+{
+  "evaluation": "groundedness",
+  "timestamp_utc": "2026-10-10T22:58:50.645679+00:00",
+  "api_base_url": "http://host.docker.internal:8000",
+  "dataset": "/evaluation/docs/evals/groundedness-v1.jsonl",
+  "summary": {
+    "total_cases": 3,
+    "passed_cases": 2,
+    "failed_cases": 1,
+    "pass_rate": 0.6667,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "g-001",
+      "trace_id": "f5368af8-d530-438b-aefc-1d6f358f21c8",
+      "model_used": "qwen3:14b",
+      "passed": false,
+      "score": 0.8333,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": false
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "We're sorry to hear you were charged twice for your plan. Duplicate charges are reviewed within 2 business days and reversed if confirmed, as outlined in our billing policy. Since this is a billing dispute, our team will need to review your case manually to resolve it. We'll get back to you as soon as possible\n\nSources: [billing-policy-01], [support-sla-02]"
+    },
+    {
+      "id": "g-002",
+      "trace_id": "1a8fc017-dc75-4bac-bb53-7bf382b14835",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": true
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "Yes, duplicate charges are reviewed within 2 business days and reversed if confirmed. For billing disputes, a human review is required for final resolution.\n\nSources: [billing-policy-01], [support-sla-02]"
+    },
+    {
+      "id": "g-003",
+      "trace_id": "3119b6f1-308a-4d87-97a5-118d4d3d20be",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "required_phrase_checks": {
+        "2 business days": true,
+        "human review": true
+      },
+      "forbidden_phrase_checks": {
+        "guaranteed refund": true,
+        "immediate refund": true
+      },
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "source_coverage_passed": true,
+      "citation_contract_passed": true,
+      "draft": "We are reviewing the duplicate charge as per our Billing and Refund Policy, and it will be reversed if confirmed within 2 business days. Since this is a billing dispute, a human reviewer will handle the final resolution.\n\nSources: [billing-policy-01], [support-sla-02]"
+    }
+  ]
+}

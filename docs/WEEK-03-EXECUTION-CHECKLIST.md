@@ -80,7 +80,7 @@ Learning focus: retrieval recall is not the same as answer groundedness; citatio
 
 - [x] Measure retrieval Recall@k against the labeled query set.
 - [x] Sweep cosine-distance cutoffs as a source-presence diagnostic only; do not treat distance as answer confidence.
-- [ ] Measure citation correctness separately from groundedness.
+- [x] Measure citation correctness separately from groundedness.
 - [x] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
 - [ ] Check that unsupported questions trigger the defined safe behavior and high-risk cases still require review.
 - [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
@@ -111,6 +111,19 @@ Risk preference (2026-10-10): false accepts are considered costlier than false
 rejects, so a future evidence gate should favor conservative human escalation
 when retrieval is uncertain. This is an evaluation preference, not a numeric
 cutoff or authorization for automatic rejection.
+
+Support-draft quality baseline (2026-10-10): groundedness v1 passed 2/3 cases
+(66.7% pass rate); citation correctness passed 3/3 (100%). The `g-001`
+groundedness case missed the literal phrase "human review" even though the
+draft said the team would review the case manually; its expected sources and
+citation contract passed. This is a lexical false negative. Conversely, a
+groundedness pass is not proof of claim support because the evaluator only
+checks listed phrases. The two evaluators used separate API calls and datasets
+with only two overlapping questions, so their aggregate rates are not a
+same-draft comparison. The draft endpoint still uses `StubRetriever`; this
+does not validate the deferred pgvector draft path. See the
+[groundedness run](./evals/results/groundedness-20261010T225850Z.json) and
+[citation run](./evals/results/citation-correctness-20261010T230248Z.json).
 
 Exit evidence: report results against existing targets (retrieval recall >= 0.75, groundedness >= 0.90, citation correctness >= 0.95) and clearly document any misses.
 

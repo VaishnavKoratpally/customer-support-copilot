@@ -1,0 +1,82 @@
+{
+  "evaluation": "citation-correctness",
+  "timestamp_utc": "2026-10-10T23:02:48.730173+00:00",
+  "api_base_url": "http://host.docker.internal:8000",
+  "dataset": "/evaluation/docs/evals/citation-correctness-v1.jsonl",
+  "summary": {
+    "total_cases": 3,
+    "passed_cases": 3,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "c-001",
+      "trace_id": "289a9a63-7c10-41fd-b7d7-53d61304a9a7",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    },
+    {
+      "id": "c-002",
+      "trace_id": "f3641b4b-d1b8-44a2-bba5-dbdc196861c4",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "actual_source_ids": [
+        "billing-policy-01",
+        "support-sla-02"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    },
+    {
+      "id": "c-003",
+      "trace_id": "e1f47fc5-82e4-4cd6-b564-89a54cbd43bb",
+      "model_used": "qwen3:14b",
+      "passed": true,
+      "score": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "exact_match": true,
+      "allow_extra_citations": false,
+      "expected_source_ids": [
+        "general-help-01"
+      ],
+      "actual_source_ids": [
+        "general-help-01"
+      ],
+      "missing_source_ids": [],
+      "unexpected_source_ids": [],
+      "citation_contract_passed": true
+    }
+  ]
+}
