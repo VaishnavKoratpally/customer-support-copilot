@@ -66,11 +66,14 @@ trying to make Qwen3:4b perfect; keep the assessor standalone while continuing
 Day 4 evaluation.
 
 Revisit the three unchecked Day 3 items after measuring retrieval and draft
-behavior and defining a human-review gate enforced by the API/client. Until
-retrieval confidence is calibrated, represent it as unknown rather than
-converting raw cosine distance into a confidence score. Day 3 remains
-incomplete until the real draft path, retrieval-backed citations, and endpoint
-tests are completed.
+behavior. The review endpoint now enforces a persisted
+`pending_review` -> `approved`/`edited`/`rejected` transition tied to the saved
+trace (see [ADR-009](./adr/009-persisted-support-review-lifecycle.md)). This is
+not yet a customer-send gate: `/v1/support/draft` still returns its candidate,
+and no delivery endpoint or client-side enforcement exists. Until retrieval
+confidence is calibrated, represent it as unknown rather than converting raw
+cosine distance into a confidence score. Day 3 remains incomplete until the
+real draft path, retrieval-backed citations, and endpoint tests are completed.
 
 Exit evidence: `/v1/support/draft` uses retrieved source chunks for the selected domains and does not fabricate or fall back to a source when evidence is absent.
 
@@ -82,7 +85,8 @@ Learning focus: retrieval recall is not the same as answer groundedness; citatio
 - [x] Sweep cosine-distance cutoffs as a source-presence diagnostic only; do not treat distance as answer confidence.
 - [x] Measure citation correctness separately from groundedness.
 - [x] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
-- [ ] Check that unsupported questions trigger the defined safe behavior and high-risk cases still require review.
+- [x] Verify high-risk drafts start in `pending_review` and can be decided only once through the persisted review lifecycle.
+- [ ] Check that unsupported questions trigger the defined safe behavior; this requires the deferred real draft/retrieval path.
 - [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
 
 Retrieval baseline (2026-10-10): the same 12 labeled queries were evaluated at

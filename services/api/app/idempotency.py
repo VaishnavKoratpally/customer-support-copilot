@@ -35,7 +35,6 @@ def review_idempotency_key(payload: SupportReviewRequest) -> str:
             payload.trace_id,
             payload.reviewer_id,
             payload.status,
-            payload.ai_draft,
             payload.edited_draft or "",
             payload.rejection_reason_code or "",
         ]

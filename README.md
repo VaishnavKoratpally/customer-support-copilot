@@ -62,7 +62,7 @@ Copy-Item .env.example .env
 docker compose up -d postgres redis ollama pgadmin
 ```
 
-3) Initialize the database. Use the schema for a fresh database, or the migration when upgrading the existing Week 2 schema:
+3) Initialize the database. The fresh schema includes the current tables and review lifecycle. When upgrading an existing Week 2 database, apply migrations in order before starting the API:
 
 ```powershell
 # Fresh database
@@ -70,7 +70,10 @@ Get-Content .\services\api\db\schema.sql -Raw | docker compose exec -T postgres 
 
 # Existing Week 2 database
 Get-Content .\services\api\db\migrations\001_week3_versioned_embeddings.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+Get-Content .\services\api\db\migrations\002_persisted_support_review_lifecycle.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 ```
+
+If migration `001` was already applied, skip it and run only `002`.
 
 4) Pull recommended models inside Ollama container:
 

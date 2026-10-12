@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from app.review_taxonomy import RejectionReasonCode
 
 ReviewStatus = Literal["approve", "edit", "reject"]
+DraftReviewStatus = Literal["not_required", "pending_review"]
+FinalReviewStatus = Literal["approved", "edited", "rejected"]
 
 class Citation(BaseModel):
     source_id: str
@@ -28,6 +30,7 @@ class SupportDraftResponse(BaseModel):
     retrieval_confidence: float
     answer_confidence: float
     requires_human_review: bool
+    review_status: DraftReviewStatus
     escalation_reason: str | None = None
     citation_source_ids: list[str]
     citation_contract_passed: bool
@@ -115,7 +118,6 @@ class SupportReviewRequest(BaseModel):
     trace_id: str = Field(min_length=1)
     reviewer_id: str = Field(min_length=1, max_length=100)
     status: ReviewStatus
-    ai_draft: str = Field(min_length=1, max_length=5000)
     edited_draft: str | None = Field(default=None, max_length=5000)
     rejection_reason_code: RejectionReasonCode | None = Field(default=None, max_length=100)
 
@@ -135,6 +137,7 @@ class SupportReviewResponse(BaseModel):
     trace_id: str
     reviewer_id: str
     status: ReviewStatus
+    review_status: FinalReviewStatus
     final_draft: str
     requires_follow_up: bool
     reviewed_at: datetime

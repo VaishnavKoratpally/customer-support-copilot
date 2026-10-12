@@ -8,7 +8,29 @@ This schema supports deterministic support operations plus RAG traceability.
 - `conversation_messages`: timeline of customer/agent/copilot messages.
 - `audit_events`: immutable event log for policy, review, and override actions.
 - `support_draft_events`: trace-linked persisted outputs from `/v1/support/draft`.
-- `support_review_events`: reviewer decisions linked to draft trace, including serialized audit payload.
+- `support_review_events`: append-only reviewer decisions linked to draft trace, including serialized audit payload.
+
+## Human-review lifecycle
+
+Each `support_draft_events` row stores a `review_status`:
+
+- `pending_review` when `requires_human_review` is true.
+- `not_required` when no human review is required.
+- A pending draft can transition once to `approved`, `edited`, or `rejected`.
+
+`POST /v1/support/review` accepts a trace ID and a decision, then loads the
+canonical draft from `support_draft_events`; it does not trust draft text from
+the caller. In one PostgreSQL transaction, it locks the draft row, verifies it
+is still pending, changes its status, and appends the review event. Unknown
+traces return 404; drafts that are not pending return 409. Redis idempotency
+still rejects duplicate requests, while the database transition is the source
+of truth for whether a draft can be reviewed.
+
+The review endpoint is not a send endpoint. `/v1/support/draft` still returns a
+candidate draft, and there is no customer-facing delivery path yet. A future
+sender must use only drafts in `not_required`, `approved`, or `edited` state;
+`pending_review` and `rejected` must not be sent. Reviewer identity is also
+caller-supplied until authentication is implemented.
 
 ## Knowledge entities
 

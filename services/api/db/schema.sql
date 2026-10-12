@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS support_draft_events (
     retrieval_confidence DOUBLE PRECISION NOT NULL,
     answer_confidence DOUBLE PRECISION NOT NULL,
     requires_human_review BOOLEAN NOT NULL,
+    review_status TEXT NOT NULL CHECK (
+        review_status IN ('not_required', 'pending_review', 'approved', 'edited', 'rejected')
+    ),
     escalation_reason TEXT,
     citation_source_ids JSONB NOT NULL,
     citation_contract_passed BOOLEAN NOT NULL,

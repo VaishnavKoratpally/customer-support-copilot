@@ -4,7 +4,7 @@ from app.logging_utils import log_event
 from app.config import Settings
 from app.retriever import StubRetriever
 from app.routing import route_question
-from app.schemas import SupportDraftRequest, SupportDraftResponse
+from app.schemas import DraftReviewStatus, SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 from app.confidence import compute_answer_confidence
 from app.review_policy import evaluate_review_policy
@@ -78,6 +78,9 @@ class CopilotOrchestrator:
         )
         
         requires_human_review = review_decision.requires_human_review
+        review_status: DraftReviewStatus = (
+            "pending_review" if requires_human_review else "not_required"
+        )
         if "missing_citations" in review_decision.triggers:
             escalation_reason = "missing_citations"
 
@@ -97,6 +100,7 @@ class CopilotOrchestrator:
             retrieval_confidence=retrieval.confidence,
             answer_confidence=answer_confidence,
             requires_human_review=requires_human_review,
+            review_status=review_status,
             escalation_reason=escalation_reason,
             review_triggers=review_decision.triggers,
         )
@@ -111,6 +115,7 @@ class CopilotOrchestrator:
             retrieval_confidence=retrieval.confidence,
             answer_confidence=answer_confidence,
             requires_human_review=requires_human_review,
+            review_status=review_status,
             escalation_reason=escalation_reason,
             citation_source_ids=citation_source_ids,
             citation_contract_passed=citation_contract_passed,

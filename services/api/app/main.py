@@ -14,7 +14,13 @@ from app.ingestion import (
     IngestionPreviewPipeline,
 )
 from app.ingestion_repository import IngestionVersionConflict, PostgresIngestionRepository
-from app.persistence import PersistenceError, PostgresSupportRepository, SupportRepository
+from app.persistence import (
+    PersistenceError,
+    PostgresSupportRepository,
+    SupportDraftNotFoundError,
+    SupportRepository,
+    SupportReviewConflictError,
+)
 from app.retrieval_repository import (
     PostgresRetrievalRepository,
     RetrievalIndexConfigurationError,
@@ -246,6 +252,20 @@ def index_ingestion(payload: IngestionIndexRequest) -> IngestionIndexResponse:
 
 @app.post("/v1/support/review", response_model=SupportReviewResponse)
 def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse:
+    try:
+        ai_draft = support_repository.get_pending_review_draft(trace_id=payload.trace_id)
+    except SupportDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SupportReviewConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        review_response = apply_review_decision(payload, ai_draft=ai_draft)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     idempotency_key = review_idempotency_key(payload)
     try:
         claimed = review_idempotency_store.claim(key=idempotency_key)
@@ -257,15 +277,17 @@ def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse
             status_code=409,
             detail="Duplicate review request detected; request already processed.",
         )
-    try:
-        review_response = apply_review_decision(payload)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     try:
         support_repository.save_support_review(
             review_request=payload,
+            ai_draft=ai_draft,
             review_response=review_response,
         )
+    except SupportDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SupportReviewConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PersistenceError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return review_response
