@@ -1,4 +1,9 @@
-# Confidence Scoring v0 (Day 4)
+# Confidence Scoring v0 (legacy generated-draft scaffold)
+
+This heuristic is not used by the current preview-only draft runtime. Preview
+responses return `NULL` for both confidence fields. Raw pgvector cosine
+distance is not a confidence score, and this formula must not be used to
+authorize generated answers until its inputs are calibrated and evaluated.
 
 ## Objective
 Define a deterministic confidence score for support drafts that is easy to audit and tune.

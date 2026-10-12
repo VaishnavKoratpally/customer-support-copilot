@@ -11,11 +11,22 @@ ReviewLifecycleStatus = Literal[
     "not_required", "pending_review", "approved", "edited", "rejected"
 ]
 DeliverableReviewStatus = Literal["not_required", "approved", "edited"]
+DraftMode = Literal["generated", "preview_only"]
 
 class Citation(BaseModel):
     source_id: str
     title: str
     excerpt: str
+    chunk_id: UUID | None = None
+    policy_version: str | None = None
+    effective_date: date | None = None
+    access_scope: Literal["public", "internal"] | None = None
+    chunk_index: int | None = None
+    section_path: str | None = None
+    cosine_distance: float | None = Field(
+        default=None,
+        description="Raw cosine distance; lower values are closer, not a confidence score.",
+    )
 
 
 class SupportDraftRequest(BaseModel):
@@ -31,14 +42,15 @@ class SupportDraftResponse(BaseModel):
     model_used: str
     draft: str
     citations: list[Citation]
-    retrieval_confidence: float
-    answer_confidence: float
+    retrieval_confidence: float | None
+    answer_confidence: float | None
     requires_human_review: bool
     review_status: DraftReviewStatus
     escalation_reason: str | None = None
     citation_source_ids: list[str]
     citation_contract_passed: bool
     review_triggers: list[str]
+    draft_mode: DraftMode = "generated"
 
 class RetrievalQueryRequest(BaseModel):
     question: str = Field(min_length=5, max_length=3000)

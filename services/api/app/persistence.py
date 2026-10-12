@@ -75,7 +75,10 @@ class PostgresSupportRepository:
         draft_request: SupportDraftRequest,
         draft_response: SupportDraftResponse,
     ) -> None:
-        citations_payload = [citation.model_dump(mode="json") for citation in draft_response.citations]
+        citations_payload = [
+            citation.model_dump(mode="json", exclude_none=True)
+            for citation in draft_response.citations
+        ]
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
@@ -88,6 +91,7 @@ class PostgresSupportRepository:
                             intent,
                             risk_level,
                             model_used,
+                            draft_mode,
                             draft,
                             citations,
                             retrieval_confidence,
@@ -100,7 +104,7 @@ class PostgresSupportRepository:
                             review_triggers
                         )
                         VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         )
                         """,
                         (
@@ -110,6 +114,7 @@ class PostgresSupportRepository:
                             draft_response.intent,
                             draft_response.risk_level,
                             draft_response.model_used,
+                            draft_response.draft_mode,
                             draft_response.draft,
                             Jsonb(citations_payload),
                             draft_response.retrieval_confidence,
@@ -184,7 +189,7 @@ class PostgresSupportRepository:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT draft, requires_human_review, review_status
+                        SELECT draft, draft_mode, requires_human_review, review_status
                         FROM support_draft_events
                         WHERE trace_id = %s
                         FOR UPDATE
@@ -195,10 +200,19 @@ class PostgresSupportRepository:
                     if draft_row is None:
                         raise SupportDraftNotFoundError("Support draft was not found.")
 
-                    stored_draft, requires_human_review, current_status = draft_row
+                    (
+                        stored_draft,
+                        draft_mode,
+                        requires_human_review,
+                        current_status,
+                    ) = draft_row
                     if not requires_human_review or current_status != "pending_review":
                         raise SupportReviewConflictError(
                             "Support draft is no longer awaiting human review."
+                        )
+                    if draft_mode == "preview_only" and review_request.status == "approve":
+                        raise SupportReviewConflictError(
+                            "Preview-only drafts must be edited or rejected; they cannot be approved as customer responses."
                         )
                     if (
                         stored_draft != ai_draft
@@ -287,7 +301,7 @@ class PostgresSupportRepository:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT draft, requires_human_review, review_status
+                        SELECT draft, draft_mode, requires_human_review, review_status
                         FROM support_draft_events
                         WHERE trace_id = %s
                         FOR UPDATE
@@ -298,7 +312,12 @@ class PostgresSupportRepository:
                     if draft_row is None:
                         raise SupportDraftNotFoundError("Support draft was not found.")
 
-                    stored_draft, requires_human_review, current_status = draft_row
+                    (
+                        stored_draft,
+                        draft_mode,
+                        requires_human_review,
+                        current_status,
+                    ) = draft_row
                     review_action = None
                     final_draft = None
                     if current_status in ("approved", "edited"):
@@ -321,6 +340,7 @@ class PostgresSupportRepository:
 
                     try:
                         deliverable_status, content = resolve_delivery_content(
+                            draft_mode=draft_mode,
                             review_status=current_status,
                             requires_human_review=requires_human_review,
                             draft=stored_draft,

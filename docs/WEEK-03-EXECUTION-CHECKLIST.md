@@ -2,17 +2,17 @@
 
 ## Objective
 
-Replace the deterministic retrieval stub for a narrow support domain with a local, measurable RAG path wired into the live `POST /v1/support/draft` request path. Prove retrieval and grounding behavior before adding agent frameworks or broadening the product surface.
+Wire local pgvector retrieval into the live `POST /v1/support/draft` path in preview-only mode. Prove retrieval and evidence handling before enabling generated answers, adding agent frameworks, or broadening the product surface.
 
 ## Scope decisions
 
 - Start with account recovery and billing, where the Week 2 pilot exposed evidence gaps.
-- Make `/v1/support/draft` use the pgvector-backed retriever for those domains. Keep `StubRetriever` for deterministic tests, not as a fallback for user-facing requests.
+- Make `/v1/support/draft` use the pgvector-backed retriever for those domains in preview-only mode. Keep `StubRetriever` for deterministic tests, not as a fallback for user-facing requests.
 - Use the same real retriever for `/v1/retrieval/query` so its inspection results match the evidence supplied to draft generation.
 - Use synthetic or approved support documents; do not use real customer data.
 - Reuse PostgreSQL/pgvector from the existing architecture decision; do not add Qdrant this week.
 - Keep `StubRetriever` available for deterministic tests while adding the real retrieval path.
-- Keep mandatory high-risk review and current confidence thresholds unchanged until the review data is understood.
+- Keep mandatory high-risk review and current confidence thresholds unchanged for a future generated-answer path. Preview confidence remains unknown.
 - Defer LangGraph, MCP, persistent metrics infrastructure, and concurrency/load testing.
 
 ## Day 1 — Define the corpus and evaluation contract
@@ -47,37 +47,42 @@ Exit evidence: indexed chunks can be traced to their source document and version
 Learning focus: query embeddings, top-k retrieval, metadata filters, and evidence sufficiency.
 
 - [x] Implement query embedding and exact pgvector search for `/v1/retrieval/query`, returning raw cosine distances and source-version metadata.
-- [ ] Wire the real retriever into `/v1/support/draft` after evidence-sufficiency and confidence/abstention behavior are defined; retain `StubRetriever` for deterministic tests, not as a user-facing fallback.
-- [ ] Return citations from retrieved chunk metadata, not hard-coded source lists.
-- [x] Define behavior for empty or weak evidence: ask a clarifying question, abstain, or require human review.
-- [ ] Add endpoint-level tests proving `/v1/support/draft` receives real retrieved chunks and citations, plus tests for filtering and no-evidence behavior. Out-of-scope requests must not silently fall back to static stub evidence.
+- [x] Wire the real retriever into `/v1/support/draft` in preview-only mode; retain `StubRetriever` for deterministic tests, not as a user-facing fallback.
+- [x] Return citations from retrieved chunk metadata, including raw distance and source/version provenance, not hard-coded source lists.
+- [x] Define behavior for empty or weak evidence: abstain, require human review, and do not generate an answer until sufficiency is validated.
+- [x] Add endpoint-level tests proving `/v1/support/draft` returns retrieved chunks and citations, plus tests for filtering and no-evidence behavior. Out-of-scope requests do not fall back to static stub evidence.
 
-Implementation evidence for the first retrieval slice: `/v1/retrieval/query` now embeds each question and performs exact cosine search over the latest effective `public` and `internal` policy versions. It returns the raw distance and source/chunk metadata; it does not return a confidence score or decide evidence sufficiency. Ambiguous same-date versions and model/digest mismatches fail explicitly. `/v1/support/draft` remains on `StubRetriever` until its evidence and confidence behavior is designed.
+Implementation evidence: `/v1/retrieval/query` and `/v1/support/draft` share the pgvector retriever, which searches the latest effective `public` and `internal` policy versions. The draft endpoint returns the actual source chunks and metadata, but not a generated customer answer. Confidence is null, every preview requires review, and the no-hit path abstains explicitly. Filtering, error handling, and preview behavior are covered by tests. Ambiguous same-date versions and model/digest mismatches fail explicitly; there is no user-facing stub fallback.
 
 Design evidence for evidence sufficiency is captured in [ADR-008](./adr/008-claim-level-evidence-assessment.md). The contract records the fact or value requested separately from an optional evidence-backed answer and from other directly relevant, supported response facts. This represents questions such as "How long?" without forcing the question into a claim or inventing a missing value. It validates exact quotes and retrieved chunk IDs, then maps findings to deterministic statuses and actions. For `bi-005`, the credit-posting date is requested but unanswered, while the initial review window and no-guarantee rule are separately supported facts; together they justify `partial`.
 
 The standalone local assessor requests schema-constrained output from Ollama and validates it against the typed proposal and retrieved chunks. Unit tests cover aggregation, parsing, provider failures, duplicates, and quote validation. Initial real-model checks have not passed: Qwen3:4b returned schema-valid but incorrect assessments, including `none` despite relevant evidence and, in an experimental prompt variant, a duplicate claim with an unsupported quote-to-claim relationship. Requests with Qwen3:4b thinking enabled, Qwen3:14b, and the revised separated-claim schema exceeded 180-second, 240-second, and 180-second client timeouts, respectively. These are failure observations, not a benchmark. Do not wire the assessor into `/v1/support/draft` until labeled evaluation demonstrates acceptable claim coverage and no false-sufficient decisions.
 
-### Deferred: live draft-path integration
+### Deferred: generated-answer integration
 
-As of 2026-10-10, keep `/v1/support/draft` on `StubRetriever`. This is an
-explicit deferral, not a completed Day 3 objective. Do not spend more time
-trying to make Qwen3:4b perfect; keep the assessor standalone while continuing
-Day 4 evaluation.
+`/v1/support/draft` now uses real pgvector retrieval in preview-only mode. With
+hits, it returns those chunks and a deterministic notice that sufficiency has
+not been assessed; with no hits, it returns an explicit no-evidence abstention.
+It never calls the generator or assessor, reports both confidence values as
+unknown, and always starts in `pending_review`. Preview-only drafts cannot be
+approved unchanged or simulated as delivered; a human must edit the draft.
 
-Revisit the three unchecked Day 3 items after measuring retrieval and draft
-behavior. The review endpoint now enforces a persisted
+This completes the retrieval-preview items, not generated RAG. Do not spend
+more time trying to make Qwen3:4b perfect; keep the assessor standalone until
+the labeled evaluation gate passes. The review endpoint enforces a persisted
 `pending_review` -> `approved`/`edited`/`rejected` transition tied to the saved
 trace (see [ADR-009](./adr/009-persisted-support-review-lifecycle.md)). This is
 now enforced at the local simulated-delivery endpoint, which writes a hash-only
 receipt without contacting an external system. It does not prevent a client
-from copying the candidate returned by `/v1/support/draft` and sending it
+from copying any candidate returned by `/v1/support/draft` and sending it
 elsewhere; no actual customer-delivery integration exists. Until retrieval
 confidence is calibrated, represent it as unknown rather than converting raw
-cosine distance into a confidence score. Day 3 remains incomplete until the
-real draft path, retrieval-backed citations, and endpoint tests are completed.
+cosine distance into a confidence score. Enable generated answers only after
+the fixed evidence-assessment evaluation passes the gate in ADR-008.
 
-Exit evidence: `/v1/support/draft` uses retrieved source chunks for the selected domains and does not fabricate or fall back to a source when evidence is absent.
+Preview-slice exit evidence: `/v1/support/draft` uses retrieved source chunks
+for the selected domains and abstains without static fallback when evidence is
+absent. Full generated-RAG exit evidence remains open.
 
 ## Day 4 — Evaluate retrieval and grounded generation
 
@@ -90,7 +95,7 @@ Learning focus: retrieval recall is not the same as answer groundedness; citatio
 - [x] Verify high-risk drafts start in `pending_review` and can be decided only once through the persisted review lifecycle.
 - [x] Enforce the review state at a local simulated-delivery endpoint; record one hash-only receipt and refuse pending/rejected drafts.
 - [ ] Check that unsupported questions trigger the defined safe behavior; this requires the deferred real draft/retrieval path.
-- [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
+- [x] Review evaluator limitations; do not present lexical checks as semantic proof. See the [support-draft evaluation guide](./evals/SUPPORT-DRAFT-EVALS-V1.md) and [same-draft regression tests](../scripts/test_draft_quality_metrics.py).
 
 Retrieval baseline (2026-10-10): the same 12 labeled queries were evaluated at
 k=1, 2, and 3; 10 cases have expected source IDs and two are intentionally
@@ -127,8 +132,10 @@ citation contract passed. This is a lexical false negative. Conversely, a
 groundedness pass is not proof of claim support because the evaluator only
 checks listed phrases. The two evaluators used separate API calls and datasets
 with only two overlapping questions, so their aggregate rates are not a
-same-draft comparison. The draft endpoint still uses `StubRetriever`; this
-does not validate the deferred pgvector draft path. See the
+same-draft comparison. These runs predate the preview-only pgvector integration
+and do not validate retrieved-evidence grounding or generated RAG. The live
+quality evaluators now reject `preview_only` responses rather than score the
+deterministic abstention notice. See the
 [groundedness run](./evals/results/groundedness-20261010T225850Z.json) and
 [citation run](./evals/results/citation-correctness-20261010T230248Z.json).
 
@@ -148,7 +155,7 @@ Exit evidence: review behavior has a per-case explanation, and the model compari
 
 ## Week 3 exit criteria
 
-- [ ] `/v1/support/draft` uses real pgvector retrieval for account recovery and billing; citations map to stored chunks. `StubRetriever` is not on the user-facing runtime path.
+- [ ] Generated `/v1/support/draft` answers use real pgvector evidence and validated sufficiency decisions; citations map to stored chunks. `StubRetriever` is not on the user-facing runtime path.
 - [ ] The fixed evaluation set covers answerable and unsupported questions.
 - [ ] Retrieval, citation, groundedness, and review behavior are reported as distinct measurements.
 - [ ] Missing evidence follows a safe, tested path.

@@ -1,5 +1,6 @@
 from app.schemas import (
     DeliverableReviewStatus,
+    DraftMode,
     ReviewLifecycleStatus,
     ReviewStatus,
 )
@@ -11,12 +12,22 @@ class DeliveryNotAllowedError(RuntimeError):
 
 def resolve_delivery_content(
     *,
+    draft_mode: DraftMode,
     review_status: ReviewLifecycleStatus,
     requires_human_review: bool,
     draft: str,
     review_action: ReviewStatus | None,
     final_draft: str | None,
 ) -> tuple[DeliverableReviewStatus, str]:
+    if review_status in ("pending_review", "rejected"):
+        raise DeliveryNotAllowedError(
+            "Human review is pending or the draft was rejected."
+        )
+    if draft_mode == "preview_only" and review_status != "edited":
+        raise DeliveryNotAllowedError(
+            "Preview-only drafts must be edited by a human before simulated delivery."
+        )
+
     if review_status == "not_required":
         if requires_human_review:
             raise DeliveryNotAllowedError(

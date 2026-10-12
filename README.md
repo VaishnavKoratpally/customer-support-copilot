@@ -72,9 +72,10 @@ Get-Content .\services\api\db\schema.sql -Raw | docker compose exec -T postgres 
 Get-Content .\services\api\db\migrations\001_week3_versioned_embeddings.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\002_persisted_support_review_lifecycle.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\003_simulated_support_delivery.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+Get-Content .\services\api\db\migrations\004_preview_only_drafts.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 ```
 
-If migrations `001` and `002` were already applied, run only `003`.
+If migrations `001` through `003` were already applied, run only `004`.
 
 4) Pull recommended models inside Ollama container:
 
@@ -105,7 +106,15 @@ curl -X POST http://localhost:8000/v1/support/draft `
   -d "{\"question\":\"I was charged twice for my plan. Can you help?\"}"
 ```
 
-When the draft response says `not_required`, or the review response says `approved` or `edited`, use its trace ID to create a local simulated-delivery receipt:
+The current draft endpoint is intentionally `preview_only`: it uses real
+pgvector evidence but does not generate a customer answer or claim confidence.
+Retrieved citations include raw cosine distance, which is not a confidence
+score. A preview must be human-edited before a simulated-delivery receipt can
+be created; approving the preview notice alone is not allowed.
+
+For a generated-mode draft, when the draft response says `not_required`, or the
+review response says `approved` or `edited`, use its trace ID to create a local
+simulated-delivery receipt:
 
 ```powershell
 curl -X POST http://localhost:8000/v1/support/simulated-deliveries `

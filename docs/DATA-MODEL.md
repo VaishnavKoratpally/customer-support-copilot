@@ -8,6 +8,7 @@ This schema supports deterministic support operations plus RAG traceability.
 - `conversation_messages`: timeline of customer/agent/copilot messages.
 - `audit_events`: immutable event log for policy, review, and override actions.
 - `support_draft_events`: trace-linked persisted outputs from `/v1/support/draft`.
+- `draft_mode`: distinguishes a generated candidate from the current preview-only abstention.
 - `support_review_events`: append-only reviewer decisions linked to draft trace, including serialized audit payload.
 - `support_delivery_events`: one hash-only receipt for a locally simulated delivery per draft trace.
 
@@ -41,6 +42,14 @@ that text elsewhere. A future real sender must use only `not_required`,
 `approved`, or `edited` state and should use a transactional outbox rather than
 holding a database transaction open across an external network call. Reviewer
 identity is also caller-supplied until authentication is implemented.
+
+The current `/v1/support/draft` runtime is `preview_only`: it returns real
+retrieved chunks and a deterministic abstention notice, not a generated
+customer response. Its retrieval and answer confidence fields are `NULL`
+because neither score is calibrated or computed. Preview-only drafts require
+review, cannot be approved as customer responses, and can enter simulated
+delivery only after a human edit. A generated-mode draft retains the existing
+review and delivery rules.
 
 ## Knowledge entities
 

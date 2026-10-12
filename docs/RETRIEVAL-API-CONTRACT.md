@@ -46,7 +46,16 @@ the stored model/digest does not match the query embedding, the endpoint returns
 an error instead of silently selecting incompatible evidence.
 
 The access-scope filter is a local support-agent behavior, not caller
-authorization. This route currently returns nearest candidates even when the
-corpus may not contain an answer; it does not apply a distance cutoff or make an
-evidence-sufficiency decision. `/v1/support/draft` remains on the deterministic
-stub during this retrieval-query implementation slice.
+authorization. This route returns nearest candidates even when the corpus may
+not contain an answer; it does not apply a distance cutoff or make an
+evidence-sufficiency decision.
+
+`POST /v1/support/draft` uses the same pgvector retriever in `preview_only`
+mode. It returns each retrieved chunk as a citation, including source/version
+metadata and raw cosine distance. The distance is diagnostic only: it is not
+converted into confidence or used as an answerability threshold. If no eligible
+chunks are returned, the endpoint reports that explicitly. In both cases it
+generates no customer answer, leaves confidence fields null, and requires
+human review. It does not fall back to static stub evidence. See
+[ADR-011](./adr/011-preview-only-draft-retrieval.md) for the reason generation
+remains disabled.

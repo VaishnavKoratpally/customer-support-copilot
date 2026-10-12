@@ -2,9 +2,9 @@ from uuid import uuid4
 import logging
 from app.logging_utils import log_event
 from app.config import Settings
-from app.retriever import StubRetriever
+from app.retriever import PgVectorRetriever, StubRetriever
 from app.routing import route_question
-from app.schemas import DraftReviewStatus, SupportDraftRequest, SupportDraftResponse
+from app.schemas import Citation, DraftReviewStatus, SupportDraftRequest, SupportDraftResponse
 from app.prompts import build_support_system_prompt, build_support_user_prompt
 from app.confidence import compute_answer_confidence
 from app.review_policy import evaluate_review_policy
@@ -12,7 +12,7 @@ from app.llm_provider import LLMProvider
 
 logger = logging.getLogger("support_copilot.orchestrator")
 
-def _unique_source_ids(citations: list) -> list[str]:
+def _unique_source_ids(citations: list[Citation]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     for citation in citations:
@@ -22,7 +22,7 @@ def _unique_source_ids(citations: list) -> list[str]:
             ordered.append(source_id)
     return ordered
 
-class CopilotOrchestrator:
+class StubRetrievalCopilotOrchestrator:
     def __init__(
         self,
         *,
@@ -120,4 +120,85 @@ class CopilotOrchestrator:
             citation_source_ids=citation_source_ids,
             citation_contract_passed=citation_contract_passed,
             review_triggers=review_decision.triggers,
+        )
+
+
+class PreviewOnlyDraftOrchestrator:
+    def __init__(self, *, retriever: PgVectorRetriever) -> None:
+        self._retriever = retriever
+
+    def draft_reply(self, payload: SupportDraftRequest) -> SupportDraftResponse:
+        trace_id = str(uuid4())
+        route = route_question(payload.question)
+        retrieval = self._retriever.retrieve(payload.question, top_k=3)
+        citations = [
+            Citation(
+                source_id=hit.source_id,
+                title=hit.title,
+                excerpt=hit.text,
+                chunk_id=hit.chunk_id,
+                policy_version=hit.policy_version,
+                effective_date=hit.effective_date,
+                access_scope=hit.access_scope,
+                chunk_index=hit.chunk_index,
+                section_path=hit.section_path,
+                cosine_distance=hit.cosine_distance,
+            )
+            for hit in retrieval.hits
+        ]
+        citation_source_ids = _unique_source_ids(citations)
+        citation_contract_passed = bool(citation_source_ids)
+        has_evidence = bool(retrieval.hits)
+        review_triggers = ["evidence_assessment_not_validated"]
+        if not has_evidence:
+            review_triggers.append("no_retrieved_evidence")
+        if route.risk_level == "high":
+            review_triggers.append("high_risk_intent")
+
+        if has_evidence:
+            draft = (
+                "No customer response was generated. Retrieved evidence has not been "
+                "assessed for sufficiency. A support agent must review the sources and "
+                "draft a response manually."
+            )
+            escalation_reason = "evidence_assessment_not_validated"
+        else:
+            draft = (
+                "No customer response was generated because no eligible support evidence "
+                "was retrieved. A support agent must review the request and respond manually."
+            )
+            escalation_reason = "no_retrieved_evidence"
+
+        model_used = "none_preview_only"
+        log_event(
+            logger,
+            "support_draft_preview",
+            trace_id=trace_id,
+            intent=route.intent,
+            risk_level=route.risk_level,
+            model_used=model_used,
+            retrieved_chunk_count=len(retrieval.hits),
+            citation_source_ids=citation_source_ids,
+            requires_human_review=True,
+            review_status="pending_review",
+            escalation_reason=escalation_reason,
+            review_triggers=review_triggers,
+        )
+
+        return SupportDraftResponse(
+            trace_id=trace_id,
+            intent=route.intent,
+            risk_level=route.risk_level,
+            model_used=model_used,
+            draft=draft,
+            citations=citations,
+            retrieval_confidence=None,
+            answer_confidence=None,
+            requires_human_review=True,
+            review_status="pending_review",
+            escalation_reason=escalation_reason,
+            citation_source_ids=citation_source_ids,
+            citation_contract_passed=citation_contract_passed,
+            review_triggers=review_triggers,
+            draft_mode="preview_only",
         )

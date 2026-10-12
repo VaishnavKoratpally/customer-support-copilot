@@ -82,6 +82,11 @@ def call_support_draft(
 
     if not isinstance(body, dict):
         raise EvaluationAPIError("Support draft API response must be a JSON object")
+    if body.get("draft_mode") != "generated":
+        raise EvaluationAPIError(
+            "Support draft quality evaluation requires generated mode; "
+            f"received draft_mode={body.get('draft_mode')!r}"
+        )
     if not isinstance(body.get("draft"), str):
         raise EvaluationAPIError("Support draft API response is missing string field 'draft'")
     if not isinstance(body.get("citation_source_ids"), list) or not all(

@@ -41,10 +41,13 @@ CREATE TABLE IF NOT EXISTS support_draft_events (
     intent TEXT NOT NULL,
     risk_level TEXT NOT NULL CHECK (risk_level IN ('low', 'medium', 'high')),
     model_used TEXT NOT NULL,
+    draft_mode TEXT NOT NULL DEFAULT 'generated' CHECK (
+        draft_mode IN ('generated', 'preview_only')
+    ),
     draft TEXT NOT NULL,
     citations JSONB NOT NULL,
-    retrieval_confidence DOUBLE PRECISION NOT NULL,
-    answer_confidence DOUBLE PRECISION NOT NULL,
+    retrieval_confidence DOUBLE PRECISION,
+    answer_confidence DOUBLE PRECISION,
     requires_human_review BOOLEAN NOT NULL,
     review_status TEXT NOT NULL CHECK (
         review_status IN ('not_required', 'pending_review', 'approved', 'edited', 'rejected')

@@ -2,7 +2,7 @@ import unittest
 
 from app.config import Settings
 from app.llm_provider import StubLLMProvider
-from app.orchestrator import CopilotOrchestrator
+from app.orchestrator import StubRetrievalCopilotOrchestrator
 from app.retriever import RetrievalResult
 from app.schemas import Citation, SupportDraftRequest
 
@@ -24,7 +24,7 @@ class HighConfidenceRetriever:
 
 class OrchestratorReviewStatusTests(unittest.TestCase):
     def setUp(self):
-        self.orchestrator = CopilotOrchestrator(
+        self.orchestrator = StubRetrievalCopilotOrchestrator(
             settings=Settings(
                 MAIN_MODEL="stub",
                 ESCALATION_MODEL="stub",

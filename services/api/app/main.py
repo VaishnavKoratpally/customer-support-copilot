@@ -4,9 +4,9 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from app.config import get_settings
 from app.logging_utils import configure_logging, log_event
-from app.orchestrator import CopilotOrchestrator
+from app.orchestrator import PreviewOnlyDraftOrchestrator
 from app.review_workflow import apply_review_decision
-from app.retriever import PgVectorRetriever, StubRetriever
+from app.retriever import PgVectorRetriever
 from app.embedder import EmbeddingProviderError, OllamaEmbeddingProvider
 from app.ingestion import (
     IngestionIndexPipeline,
@@ -42,7 +42,6 @@ from app.schemas import (
     SupportReviewResponse,
 )
 from app.metrics import InMemoryMetrics
-from app.llm_provider import LLMProvider, OllamaLLMProvider, StubLLMProvider
 from redis import Redis
 from app.idempotency import (
     IdempotencyUnavailableError,
@@ -56,7 +55,6 @@ app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
-draft_retriever = StubRetriever()
 ingestion_preview_pipeline = IngestionPreviewPipeline()
 embedding_provider = OllamaEmbeddingProvider(
     base_url=settings.ollama_base_url,
@@ -78,17 +76,6 @@ def build_review_idempotency_store() -> RedisIdempotencyStore:
     )
 review_idempotency_store = build_review_idempotency_store()
 
-def build_llm_provider() -> LLMProvider:
-    if settings.llm_provider == "ollama":
-        return OllamaLLMProvider(
-            base_url=settings.ollama_base_url,
-            timeout_seconds=settings.ollama_timeout_seconds,
-        )
-    if settings.llm_provider == "stub":
-        return StubLLMProvider()
-    raise ValueError(f"Unsupported llm_provider: {settings.llm_provider}")
-
-
 def build_support_repository() -> SupportRepository:
     return PostgresSupportRepository(
         dsn=settings.postgres_dsn,
@@ -96,7 +83,6 @@ def build_support_repository() -> SupportRepository:
     )
 
 
-llm_provider = build_llm_provider()
 support_repository = build_support_repository()
 ingestion_repository = PostgresIngestionRepository(
     dsn=settings.postgres_dsn,
@@ -115,10 +101,8 @@ retrieval_query_retriever = PgVectorRetriever(
     repository=retrieval_repository,
 )
 
-orchestrator = CopilotOrchestrator(
-    settings=settings,
-    retriever=draft_retriever,
-    llm_provider=llm_provider,
+orchestrator = PreviewOnlyDraftOrchestrator(
+    retriever=retrieval_query_retriever,
 )
 
 
@@ -184,8 +168,12 @@ def health() -> dict[str, str]:
 def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
     try:
         result = orchestrator.draft_reply(payload)
-    except RuntimeError as exc:
+    except EmbeddingProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except RetrievalIndexConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     try:
         support_repository.save_support_draft(
             draft_request=payload,

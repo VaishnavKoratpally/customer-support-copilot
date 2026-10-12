@@ -13,8 +13,13 @@ Define a deterministic, evidence-first prompting approach for support draft gene
 This strategy applies to the support draft flow:
 
 - Endpoint: `POST /v1/support/draft`
-- Orchestration: route -> retrieve -> prompt -> draft -> policy gate
-- Current provider: stub provider (local behavior), with prompt plumbing aligned for future real LLM integration.
+- Planned generated-answer orchestration: route -> retrieve -> prompt -> draft -> policy gate.
+- Current runtime: preview-only; it retrieves evidence and abstains without calling a model.
+
+The prompt templates below describe a future generated-answer path. They are
+not currently invoked by `/v1/support/draft`. Generation remains gated on the
+evidence assessor meeting the acceptance criteria in
+[ADR-008](./adr/008-claim-level-evidence-assessment.md).
 
 ## Prompt architecture
 
@@ -80,18 +85,22 @@ v1 structure:
 4. **False confidence language**  
    Draft implies certainty when evidence is incomplete.
 
-## Guardrails linked to prompting
+## Planned guardrails linked to prompting
 
 - mandatory human review for high-risk intents
 - human review when answer confidence is below threshold
 - human review when citations are missing or weak
 - escalation reason captured in response payload
 
+The current preview-only runtime does not invoke these prompt or confidence
+policies; it always abstains and requires review. The generated-answer guardrails
+become active only when generation is enabled after the evidence-assessment
+gate passes.
+
 ## Evolution plan
 
-### v1 (current)
+### Prepared prompt contract (not active in the runtime)
 - static system/user prompt templates
-- deterministic response flow
 - response must include citation_source_ids
 - citation_contract_passed must be true for normal flow
 - missing citations forces HITL with escalation reason

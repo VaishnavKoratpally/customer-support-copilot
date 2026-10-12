@@ -1,6 +1,11 @@
 # Support Draft Evaluations v1
 
-These evaluators call the live `POST /v1/support/draft` endpoint. They assess draft text and citation IDs using deterministic checks; they do not use an LLM judge.
+These evaluators are intended for generated responses from the live
+`POST /v1/support/draft` endpoint. They assess draft text and citation IDs
+using deterministic checks; they do not use an LLM judge. The endpoint
+currently returns `draft_mode: "preview_only"` and no customer response, so
+the evaluator client rejects that mode rather than report misleading
+groundedness or citation-quality scores.
 
 ## How to interpret the two metrics
 
