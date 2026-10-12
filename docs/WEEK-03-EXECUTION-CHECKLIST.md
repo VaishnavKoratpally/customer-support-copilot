@@ -69,8 +69,10 @@ Revisit the three unchecked Day 3 items after measuring retrieval and draft
 behavior. The review endpoint now enforces a persisted
 `pending_review` -> `approved`/`edited`/`rejected` transition tied to the saved
 trace (see [ADR-009](./adr/009-persisted-support-review-lifecycle.md)). This is
-not yet a customer-send gate: `/v1/support/draft` still returns its candidate,
-and no delivery endpoint or client-side enforcement exists. Until retrieval
+now enforced at the local simulated-delivery endpoint, which writes a hash-only
+receipt without contacting an external system. It does not prevent a client
+from copying the candidate returned by `/v1/support/draft` and sending it
+elsewhere; no actual customer-delivery integration exists. Until retrieval
 confidence is calibrated, represent it as unknown rather than converting raw
 cosine distance into a confidence score. Day 3 remains incomplete until the
 real draft path, retrieval-backed citations, and endpoint tests are completed.
@@ -86,6 +88,7 @@ Learning focus: retrieval recall is not the same as answer groundedness; citatio
 - [x] Measure citation correctness separately from groundedness.
 - [x] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
 - [x] Verify high-risk drafts start in `pending_review` and can be decided only once through the persisted review lifecycle.
+- [x] Enforce the review state at a local simulated-delivery endpoint; record one hash-only receipt and refuse pending/rejected drafts.
 - [ ] Check that unsupported questions trigger the defined safe behavior; this requires the deferred real draft/retrieval path.
 - [ ] Review evaluator limitations; do not present lexical checks as semantic proof.
 

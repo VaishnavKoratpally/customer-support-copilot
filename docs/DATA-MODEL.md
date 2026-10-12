@@ -9,6 +9,7 @@ This schema supports deterministic support operations plus RAG traceability.
 - `audit_events`: immutable event log for policy, review, and override actions.
 - `support_draft_events`: trace-linked persisted outputs from `/v1/support/draft`.
 - `support_review_events`: append-only reviewer decisions linked to draft trace, including serialized audit payload.
+- `support_delivery_events`: one hash-only receipt for a locally simulated delivery per draft trace.
 
 ## Human-review lifecycle
 
@@ -26,11 +27,20 @@ traces return 404; drafts that are not pending return 409. Redis idempotency
 still rejects duplicate requests, while the database transition is the source
 of truth for whether a draft can be reviewed.
 
-The review endpoint is not a send endpoint. `/v1/support/draft` still returns a
-candidate draft, and there is no customer-facing delivery path yet. A future
-sender must use only drafts in `not_required`, `approved`, or `edited` state;
-`pending_review` and `rejected` must not be sent. Reviewer identity is also
-caller-supplied until authentication is implemented.
+`POST /v1/support/simulated-deliveries` accepts only a trace ID. It locks the
+draft row and selects the canonical text: the saved candidate for
+`not_required`, or the persisted final review text for `approved`/`edited`.
+Pending and rejected drafts return 409. The endpoint records the eligible
+review state, a SHA-256 content hash, and a timestamp; a unique trace constraint
+allows at most one simulated delivery per draft. It stores no duplicate message
+body and makes no network call.
+
+This is a local server-side gate, not actual customer delivery. `/v1/support/draft`
+still returns its candidate, so clients can bypass the simulation by copying
+that text elsewhere. A future real sender must use only `not_required`,
+`approved`, or `edited` state and should use a transactional outbox rather than
+holding a database transaction open across an external network call. Reviewer
+identity is also caller-supplied until authentication is implemented.
 
 ## Knowledge entities
 

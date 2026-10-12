@@ -5,7 +5,10 @@ from uuid import uuid4
 import psycopg
 from psycopg.types.json import Jsonb
 
+from app.delivery_workflow import DeliveryNotAllowedError, resolve_delivery_content
 from app.schemas import (
+    SupportDeliveryRequest,
+    SupportDeliveryResponse,
     SupportDraftRequest,
     SupportDraftResponse,
     SupportReviewRequest,
@@ -22,6 +25,10 @@ class SupportDraftNotFoundError(LookupError):
 
 
 class SupportReviewConflictError(RuntimeError):
+    pass
+
+
+class SupportDeliveryConflictError(RuntimeError):
     pass
 
 
@@ -44,6 +51,13 @@ class SupportRepository(Protocol):
         ai_draft: str,
         review_response: SupportReviewResponse,
     ) -> None:
+        ...
+
+    def record_support_delivery(
+        self,
+        *,
+        delivery_request: SupportDeliveryRequest,
+    ) -> SupportDeliveryResponse:
         ...
 
 
@@ -260,3 +274,124 @@ class PostgresSupportRepository:
             raise PersistenceError(
                 f"Failed to persist support review event: {exc}"
             ) from exc
+
+    def record_support_delivery(
+        self,
+        *,
+        delivery_request: SupportDeliveryRequest,
+    ) -> SupportDeliveryResponse:
+        delivery_id = str(uuid4())
+        response: SupportDeliveryResponse | None = None
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT draft, requires_human_review, review_status
+                        FROM support_draft_events
+                        WHERE trace_id = %s
+                        FOR UPDATE
+                        """,
+                        (delivery_request.trace_id,),
+                    )
+                    draft_row = cur.fetchone()
+                    if draft_row is None:
+                        raise SupportDraftNotFoundError("Support draft was not found.")
+
+                    stored_draft, requires_human_review, current_status = draft_row
+                    review_action = None
+                    final_draft = None
+                    if current_status in ("approved", "edited"):
+                        cur.execute(
+                            """
+                            SELECT status, final_draft
+                            FROM support_review_events
+                            WHERE trace_id = %s
+                            ORDER BY reviewed_at DESC, created_at DESC
+                            LIMIT 1
+                            """,
+                            (delivery_request.trace_id,),
+                        )
+                        review_row = cur.fetchone()
+                        if review_row is None:
+                            raise SupportDeliveryConflictError(
+                                "A matching persisted review decision is required."
+                            )
+                        review_action, final_draft = review_row
+
+                    try:
+                        deliverable_status, content = resolve_delivery_content(
+                            review_status=current_status,
+                            requires_human_review=requires_human_review,
+                            draft=stored_draft,
+                            review_action=review_action,
+                            final_draft=final_draft,
+                        )
+                    except DeliveryNotAllowedError as exc:
+                        raise SupportDeliveryConflictError(str(exc)) from exc
+
+                    cur.execute(
+                        """
+                        SELECT 1
+                        FROM support_delivery_events
+                        WHERE trace_id = %s
+                        """,
+                        (delivery_request.trace_id,),
+                    )
+                    if cur.fetchone() is not None:
+                        raise SupportDeliveryConflictError(
+                            "A simulated delivery is already recorded for this draft."
+                        )
+
+                    content_sha256 = sha256(content.encode("utf-8")).hexdigest()
+                    cur.execute(
+                        """
+                        INSERT INTO support_delivery_events (
+                            id,
+                            trace_id,
+                            review_status,
+                            content_sha256
+                        )
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING simulated_at
+                        """,
+                        (
+                            delivery_id,
+                            delivery_request.trace_id,
+                            deliverable_status,
+                            content_sha256,
+                        ),
+                    )
+                    delivery_row = cur.fetchone()
+                    if delivery_row is None:
+                        raise PersistenceError(
+                            "Database did not return the simulated delivery timestamp."
+                        )
+
+                    response = SupportDeliveryResponse(
+                        delivery_id=delivery_id,
+                        trace_id=delivery_request.trace_id,
+                        delivery_status="simulated",
+                        review_status=deliverable_status,
+                        content_sha256=content_sha256,
+                        simulated_at=delivery_row[0],
+                    )
+                conn.commit()
+        except (SupportDraftNotFoundError, SupportDeliveryConflictError):
+            raise
+        except psycopg.errors.UniqueViolation as exc:
+            if exc.diag.constraint_name == "support_delivery_events_trace_unique":
+                raise SupportDeliveryConflictError(
+                    "A simulated delivery is already recorded for this draft."
+                ) from exc
+            raise PersistenceError(
+                f"Failed to record simulated support delivery: {exc}"
+            ) from exc
+        except psycopg.Error as exc:
+            raise PersistenceError(
+                f"Failed to record simulated support delivery: {exc}"
+            ) from exc
+
+        if response is None:
+            raise PersistenceError("Database did not create the simulated delivery receipt.")
+        return response

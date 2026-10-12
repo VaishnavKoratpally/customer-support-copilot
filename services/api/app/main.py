@@ -17,6 +17,7 @@ from app.ingestion_repository import IngestionVersionConflict, PostgresIngestion
 from app.persistence import (
     PersistenceError,
     PostgresSupportRepository,
+    SupportDeliveryConflictError,
     SupportDraftNotFoundError,
     SupportRepository,
     SupportReviewConflictError,
@@ -33,6 +34,8 @@ from app.schemas import (
     RetrievalHit,
     RetrievalQueryRequest,
     RetrievalQueryResponse,
+    SupportDeliveryRequest,
+    SupportDeliveryResponse,
     SupportDraftRequest,
     SupportDraftResponse,
     SupportReviewRequest,
@@ -291,6 +294,26 @@ def review_support_draft(payload: SupportReviewRequest) -> SupportReviewResponse
     except PersistenceError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return review_response
+
+
+@app.post(
+    "/v1/support/simulated-deliveries",
+    response_model=SupportDeliveryResponse,
+)
+def simulate_support_delivery(
+    payload: SupportDeliveryRequest,
+) -> SupportDeliveryResponse:
+    try:
+        return support_repository.record_support_delivery(
+            delivery_request=payload,
+        )
+    except SupportDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SupportDeliveryConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
 
 @app.get("/v1/metrics")
 def get_metrics() -> dict:

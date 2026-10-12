@@ -40,8 +40,8 @@ for the same trace.
 ### Limitations
 
 - `/v1/support/draft` still returns its candidate even when review is pending.
-  There is no customer-facing send endpoint, so this lifecycle does not by
-  itself prevent an external caller from sending an unapproved draft.
+  The local simulated-delivery endpoint adds a backend state check, but does
+  not contact a customer or prevent a caller from copying that draft elsewhere.
 - Reviewer identity is caller-supplied; authentication and authorization are
   not implemented.
 - The lifecycle records a decision, but does not establish that the draft's

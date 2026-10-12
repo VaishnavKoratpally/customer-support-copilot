@@ -68,12 +68,13 @@ docker compose up -d postgres redis ollama pgadmin
 # Fresh database
 Get-Content .\services\api\db\schema.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 
-# Existing Week 2 database
+# Existing Week 2 database (apply migrations in order; skip those already applied)
 Get-Content .\services\api\db\migrations\001_week3_versioned_embeddings.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\002_persisted_support_review_lifecycle.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+Get-Content .\services\api\db\migrations\003_simulated_support_delivery.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 ```
 
-If migration `001` was already applied, skip it and run only `002`.
+If migrations `001` and `002` were already applied, run only `003`.
 
 4) Pull recommended models inside Ollama container:
 
@@ -103,6 +104,16 @@ curl -X POST http://localhost:8000/v1/support/draft `
   -H "Content-Type: application/json" `
   -d "{\"question\":\"I was charged twice for my plan. Can you help?\"}"
 ```
+
+When the draft response says `not_required`, or the review response says `approved` or `edited`, use its trace ID to create a local simulated-delivery receipt:
+
+```powershell
+curl -X POST http://localhost:8000/v1/support/simulated-deliveries `
+  -H "Content-Type: application/json" `
+  -d "{\"trace_id\":\"YOUR_TRACE_ID\"}"
+```
+
+This records a hash-only receipt; it does not send a message to a customer or external service. Pending or rejected drafts are refused.
 
 Week 3 ingestion uses `qwen3-embedding:0.6b` with 1024 dimensions. `POST /v1/ingestion/preview` only chunks and hashes content; it does not generate or store vectors. `POST /v1/ingestion/index` generates embeddings and stores them. A repeated `(source_key, policy_version)` with unchanged content is a no-op; content or policy metadata changes require a new `policy_version` so older evidence remains traceable.
 

@@ -1,12 +1,16 @@
 from typing import Literal
 from datetime import date, datetime
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from app.review_taxonomy import RejectionReasonCode
 
 ReviewStatus = Literal["approve", "edit", "reject"]
 DraftReviewStatus = Literal["not_required", "pending_review"]
 FinalReviewStatus = Literal["approved", "edited", "rejected"]
+ReviewLifecycleStatus = Literal[
+    "not_required", "pending_review", "approved", "edited", "rejected"
+]
+DeliverableReviewStatus = Literal["not_required", "approved", "edited"]
 
 class Citation(BaseModel):
     source_id: str
@@ -142,3 +146,18 @@ class SupportReviewResponse(BaseModel):
     requires_follow_up: bool
     reviewed_at: datetime
     audit_event_payload: ReviewAuditEventPayload
+
+
+class SupportDeliveryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    trace_id: str = Field(min_length=1)
+
+
+class SupportDeliveryResponse(BaseModel):
+    delivery_id: UUID
+    trace_id: str
+    delivery_status: Literal["simulated"]
+    review_status: DeliverableReviewStatus
+    content_sha256: str
+    simulated_at: datetime
