@@ -124,6 +124,57 @@ curl -X POST http://localhost:8000/v1/support/simulated-deliveries `
 
 This records a hash-only receipt; it does not send a message to a customer or external service. Pending or rejected drafts are refused.
 
+## Step through a draft request in VS Code
+
+Open the repository root in VS Code, then run the debug Compose profile in an
+integrated terminal:
+
+If a previous one-off `pdb` container is still running, it may reserve port
+8000 even after Uvicorn has exited. Find it and stop only that container before
+starting this profile:
+
+```powershell
+docker ps -a --filter "name=customer-support-copilot-api-run"
+docker stop YOUR_CONTAINER_ID
+```
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build api
+```
+
+The debug profile installs `debugpy` only in this development image, mounts
+`services/api/app` from the workspace, and pauses API startup until VS Code
+attaches. In **Run and Debug**, select **Attach to Support API (Docker)** and
+press F5. Set breakpoints in `services/api/app/main.py` inside
+`draft_support_reply`, and in `services/api/app/orchestrator.py` inside
+`PreviewOnlyDraftOrchestrator.draft_reply`.
+
+In a second terminal, send a request:
+
+```powershell
+$body = @{
+  question = 'I forgot my password and cannot log in. How do I reset it?'
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://localhost:8000/v1/support/draft' `
+  -ContentType 'application/json' `
+  -Body $body
+```
+
+Use F10 to step over, F11 to step into, and Shift+F11 to step out. In the
+debug console, inspect `payload.question` in the route, then `retrieval.hits`,
+`retrieval.hits[0].text`, and `retrieval.hits[0].cosine_distance` in the
+orchestrator. The cosine distance is raw retrieval metadata, not confidence.
+The current preview-only path does not call an LLM.
+
+Stop the debug Compose process with Ctrl+C. To return to the normal API image:
+
+```powershell
+docker compose up --build -d api
+```
+
 Week 3 ingestion uses `qwen3-embedding:0.6b` with 1024 dimensions. `POST /v1/ingestion/preview` only chunks and hashes content; it does not generate or store vectors. `POST /v1/ingestion/index` generates embeddings and stores them. A repeated `(source_key, policy_version)` with unchanged content is a no-op; content or policy metadata changes require a new `policy_version` so older evidence remains traceable.
 
 ## Next implementation steps

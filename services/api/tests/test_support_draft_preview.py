@@ -87,6 +87,40 @@ class SupportDraftPreviewTests(unittest.TestCase):
         self.assertEqual(response.escalation_reason, "no_retrieved_evidence")
         self.assertIn("no_retrieved_evidence", response.review_triggers)
 
+    def test_close_nearest_match_without_requested_fact_still_abstains(self):
+        expiry_question = SupportDraftRequest(
+            question="How long is the password reset link valid before it expires?"
+        )
+        related_but_incomplete_hit = RetrievedChunk(
+            chunk_id=self.hit.chunk_id,
+            source_id=self.hit.source_id,
+            title=self.hit.title,
+            policy_version=self.hit.policy_version,
+            effective_date=self.hit.effective_date,
+            access_scope=self.hit.access_scope,
+            chunk_index=self.hit.chunk_index,
+            section_path="Password reset",
+            text=(
+                "A user can start a password reset from the sign-in page. "
+                "The reset link is sent only to the email address on the account."
+            ),
+            cosine_distance=0.2973,
+        )
+        orchestrator = PreviewOnlyDraftOrchestrator(
+            retriever=FakeRetriever((related_but_incomplete_hit,))
+        )
+
+        response = orchestrator.draft_reply(expiry_question)
+
+        self.assertEqual(response.citations[0].cosine_distance, 0.2973)
+        self.assertIsNone(response.retrieval_confidence)
+        self.assertIsNone(response.answer_confidence)
+        self.assertTrue(response.requires_human_review)
+        self.assertEqual(response.review_status, "pending_review")
+        self.assertIn("No customer response was generated.", response.draft)
+        self.assertIn("not been assessed for sufficiency", response.draft)
+        self.assertNotIn("minutes", response.draft)
+
     def test_draft_endpoint_persists_the_preview_and_real_citations(self):
         orchestrator = PreviewOnlyDraftOrchestrator(
             retriever=FakeRetriever((self.hit,))

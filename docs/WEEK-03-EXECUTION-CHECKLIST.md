@@ -94,7 +94,7 @@ Learning focus: retrieval recall is not the same as answer groundedness; citatio
 - [x] Add account-recovery and email-change cases, plus cases where the corpus intentionally lacks an answer.
 - [x] Verify high-risk drafts start in `pending_review` and can be decided only once through the persisted review lifecycle.
 - [x] Enforce the review state at a local simulated-delivery endpoint; record one hash-only receipt and refuse pending/rejected drafts.
-- [ ] Check that unsupported questions trigger the defined safe behavior; this requires the deferred real draft/retrieval path.
+- [x] Verify non-sufficient questions take the current preview-only abstention path; this verifies fail-closed behavior, not semantic sufficiency classification.
 - [x] Review evaluator limitations; do not present lexical checks as semantic proof. See the [support-draft evaluation guide](./evals/SUPPORT-DRAFT-EVALS-V1.md) and [same-draft regression tests](../scripts/test_draft_quality_metrics.py).
 
 Retrieval baseline (2026-10-10): the same 12 labeled queries were evaluated at
@@ -118,6 +118,29 @@ is not answerability: the reset-expiry case has an expected account-recovery
 source, but that source does not state an expiry duration. No cutoff was
 selected or added to the API. See the [warm retrieval run](./evals/results/retrieval-smoke-threshold-20261010T224232Z.json)
 and [offline cutoff sweep](./evals/results/retrieval-distance-threshold-20261010T224246Z.json).
+
+Retrieved-evidence review (2026-10-13): all 12 `rag-week3-v1` questions were
+queried against the live pgvector path at each case's configured `top_k` (3).
+All 10 cases with expected retrieval sources returned every expected source
+(Recall@3 = 1.00); mean unique-source precision was 0.77. Both `none` cases
+still returned nearest candidates, confirming that a non-empty hit list and a
+source match do not establish answerability. For `ar-002`, the nearest reset
+passage had cosine distance 0.2973 but states no reset-link expiry. Its
+evidence label is `insufficient`, not `sufficient`. For `bi-005`, the retrieved
+billing and SLA passages support the 2-business-day initial review window but
+do not determine when a credit will post, so the expected label remains
+`partial`. `ar-005` and `bi-004` retrieve related procedures but still require
+clarification before choosing which procedure applies.
+
+The six cases labeled `insufficient`, `partial`, `clarification_needed`, or
+`none` were also sent through the live `/v1/support/draft` path. All six
+returned `preview_only`, a no-customer-response notice, `pending_review`, and
+null retrieval/answer confidence, despite each returning nearest-neighbor
+chunks. Smoke draft rows were deleted after the check. This verifies the
+current universal fail-closed preview behavior; it does not show that the
+runtime can distinguish these evidence-sufficiency labels. The close
+`ar-002` match is covered by a regression test to ensure distance is never
+treated as evidence sufficiency.
 
 Risk preference (2026-10-10): false accepts are considered costlier than false
 rejects, so a future evidence gate should favor conservative human escalation

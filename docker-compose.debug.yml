@@ -1,0 +1,28 @@
+services:
+  api:
+    image: customer-support-copilot-api-debug
+    build:
+      context: ./services/api
+      args:
+        REQUIREMENTS_FILE: requirements-debug.txt
+    command:
+      - python
+      - -Xfrozen_modules=off
+      - -m
+      - debugpy
+      - --listen
+      - 0.0.0.0:5678
+      - --wait-for-client
+      - -m
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - type: bind
+        source: .\services\api\app
+        target: /app/app
