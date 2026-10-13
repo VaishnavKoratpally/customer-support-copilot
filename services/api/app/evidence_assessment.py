@@ -212,15 +212,41 @@ _ACTION_BY_STATUS: dict[EvidenceSufficiencyStatus, EvidenceAction] = {
 }
 
 
+def aggregate_evidence_sufficiency_status(
+    requested_findings: set[EvidenceFinding],
+    *,
+    has_supporting_facts: bool,
+    clarification_needed: bool = False,
+) -> EvidenceSufficiencyStatus:
+    if clarification_needed:
+        return "clarification_needed"
+    if "conflicting" in requested_findings:
+        return "conflicting"
+    if requested_findings.issubset({"supported", "contradicted"}):
+        return "sufficient"
+    if requested_findings.intersection({"supported", "contradicted"}) or (
+        has_supporting_facts
+    ):
+        return "partial"
+    if "related_but_not_supported" in requested_findings:
+        return "insufficient"
+    return "none"
+
+
 def validate_and_aggregate_assessment(
     proposal: EvidenceAssessmentProposal,
     *,
     retrieved_chunks: Sequence[RetrievedChunk],
 ) -> EvidenceAssessmentDecision:
     if proposal.clarifying_question is not None:
+        status = aggregate_evidence_sufficiency_status(
+            set(),
+            has_supporting_facts=False,
+            clarification_needed=True,
+        )
         return EvidenceAssessmentDecision(
-            status="clarification_needed",
-            action=_ACTION_BY_STATUS["clarification_needed"],
+            status=status,
+            action=_ACTION_BY_STATUS[status],
             requested_information=[],
             supporting_facts=[],
             clarifying_question=proposal.clarifying_question,
@@ -233,18 +259,10 @@ def validate_and_aggregate_assessment(
         _validate_finding_evidence(fact.finding, fact.evidence, chunks_by_id)
 
     requested_findings = {item.finding for item in proposal.requested_information}
-    if "conflicting" in requested_findings:
-        status: EvidenceSufficiencyStatus = "conflicting"
-    elif requested_findings.issubset({"supported", "contradicted"}):
-        status = "sufficient"
-    elif requested_findings.intersection({"supported", "contradicted"}) or (
-        proposal.supporting_facts
-    ):
-        status = "partial"
-    elif "related_but_not_supported" in requested_findings:
-        status = "insufficient"
-    else:
-        status = "none"
+    status = aggregate_evidence_sufficiency_status(
+        requested_findings,
+        has_supporting_facts=bool(proposal.supporting_facts),
+    )
 
     return EvidenceAssessmentDecision(
         status=status,

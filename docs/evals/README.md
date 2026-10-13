@@ -112,6 +112,7 @@ docker compose run --rm --no-deps -T `
   --env PYTHONPATH=/app `
   api python /evaluation/scripts/evidence_assessor_pilot.py `
     --dataset /evaluation/docs/evals/rag-week3-v1.jsonl `
+    --gold-dataset /evaluation/docs/evals/evidence-assessor-gold-v1.jsonl `
     --api-base-url http://host.docker.internal:8000
 ```
 
@@ -123,15 +124,33 @@ API image.
 
 By default, the pilot runs one case for each available outcome:
 `sufficient`, `insufficient`, `clarification_needed`, `partial`, and `none`.
-It reports exact status matches, retrieved-source recall where the dataset has
-expected sources, and retrieval/assessment latency. Requested-information
-coverage, answer/fact correctness, unsupported
+The separate `evidence-assessor-gold-v1.jsonl` file is joined by case ID and
+validated against the retrieval dataset's questions and aggregate status. Its
+atomic labels record each requested information item, finding, answer where
+supported, exact evidence quotes using stable source/section references,
+supporting facts, and clarification topics. The pilot includes these labels in
+the result artifact and checks whether each gold evidence quote was retrieved.
+It also reports false-sufficient outcomes separately from exact status
+mismatches: a conservative `none` result for an `insufficient` case is still a
+status error, but it is not a false-sufficient result.
+
+Requested-information alignment, answer/fact correctness, unsupported
 assertions, and scenario-specific action fit remain manual review fields in
-the artifact; the dataset does not contain gold requested-information
-decompositions, and its action labels are more specific than the assessor's
-generic actions. This pilot also does not create a human-review
-task. The dataset has no conflicting-evidence case.
+the artifact; labels do not make semantic equivalence safe to score with
+string matching. The dataset's action labels are more specific than the
+assessor's generic actions. This pilot also does not create a human-review
+task. The dataset has no conflicting-evidence case, so that assessor behavior
+is not covered by this gold set.
 
 Use `--case-id <id>` (repeatable) to run selected cases, or `--all-cases` to
 run the complete dataset. A full run makes twelve assessor calls and can take
-many minutes with the local model.
+many minutes with the local model. Run annotation-contract tests without model
+inference from the repository root:
+
+```powershell
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/app/scripts:ro" `
+  --volume ".\docs\evals:/app/docs/evals:ro" `
+  --env PYTHONPATH=/app `
+  api python -m unittest discover -s scripts -p "test_evidence_assessor_pilot.py" -v
+```

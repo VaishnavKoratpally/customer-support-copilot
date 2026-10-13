@@ -13,6 +13,10 @@ from typing import Any
 from uuid import UUID
 
 from app.config import get_settings
+from app.evidence_assessment import (
+    EvidenceFinding,
+    aggregate_evidence_sufficiency_status,
+)
 from app.evidence_assessor import EvidenceAssessorError, OllamaEvidenceAssessor
 from app.llm_provider import OllamaLLMProvider
 from app.retrieval_repository import RetrievedChunk
@@ -47,6 +51,16 @@ REQUIRED_FIELDS = {
     "expected_human_review",
 }
 
+GOLD_REQUIRED_FIELDS = {"id", "question", "assessor_gold"}
+ASSESSOR_FINDINGS = {
+    "supported",
+    "contradicted",
+    "related_but_not_supported",
+    "no_relevant_evidence",
+    "conflicting",
+}
+DETERMINED_FINDINGS = {"supported", "contradicted"}
+
 
 class RetrievalAPIError(RuntimeError):
     pass
@@ -79,6 +93,217 @@ def validate_case(case: dict[str, Any]) -> None:
         raise DatasetError(f"{case_id}: expected_action must be a non-empty string.")
     if not isinstance(case["expected_human_review"], bool):
         raise DatasetError(f"{case_id}: expected_human_review must be a boolean.")
+
+
+def validate_gold_evidence(
+    evidence: Any,
+    *,
+    case_id: str,
+    field_name: str,
+) -> list[dict[str, str]]:
+    if not isinstance(evidence, list):
+        raise DatasetError(f"{case_id}: {field_name} must be a list.")
+
+    validated: list[dict[str, str]] = []
+    required_fields = {"source_id", "section_path", "quote"}
+    for index, reference in enumerate(evidence):
+        if not isinstance(reference, dict) or set(reference) != required_fields:
+            raise DatasetError(
+                f"{case_id}: {field_name}[{index}] must contain exactly "
+                "source_id, section_path, and quote."
+            )
+        for field_name_in_reference in required_fields:
+            value = reference[field_name_in_reference]
+            if not isinstance(value, str) or not value.strip():
+                raise DatasetError(
+                    f"{case_id}: {field_name}[{index}].{field_name_in_reference} "
+                    "must be a non-empty string."
+                )
+        validated.append(reference)
+    return validated
+
+
+def validate_assessor_gold(
+    *,
+    case_id: str,
+    expected_status: str,
+    expected_source_ids: set[str],
+    assessor_gold: Any,
+) -> None:
+    required_fields = {
+        "requested_information",
+        "supporting_facts",
+        "clarification_topics",
+    }
+    if not isinstance(assessor_gold, dict) or set(assessor_gold) != required_fields:
+        raise DatasetError(
+            f"{case_id}: assessor_gold must contain exactly "
+            "requested_information, supporting_facts, and clarification_topics."
+        )
+
+    requested_information = assessor_gold["requested_information"]
+    supporting_facts = assessor_gold["supporting_facts"]
+    clarification_topics = assessor_gold["clarification_topics"]
+    if not isinstance(requested_information, list):
+        raise DatasetError(f"{case_id}: assessor_gold.requested_information must be a list.")
+    if not isinstance(supporting_facts, list):
+        raise DatasetError(f"{case_id}: assessor_gold.supporting_facts must be a list.")
+    if not isinstance(clarification_topics, list) or not all(
+        isinstance(topic, str) and topic.strip() for topic in clarification_topics
+    ):
+        raise DatasetError(
+            f"{case_id}: assessor_gold.clarification_topics must be a list "
+            "of non-empty strings."
+        )
+
+    requested_ids: set[str] = set()
+    findings: set[EvidenceFinding] = set()
+    for index, item in enumerate(requested_information):
+        item_path = f"assessor_gold.requested_information[{index}]"
+        item_fields = {
+            "id",
+            "requested_information",
+            "finding",
+            "answer",
+            "evidence",
+        }
+        if not isinstance(item, dict) or set(item) != item_fields:
+            raise DatasetError(
+                f"{case_id}: {item_path} has an invalid shape."
+            )
+        for field_name in ("id", "requested_information"):
+            value = item[field_name]
+            if not isinstance(value, str) or not value.strip():
+                raise DatasetError(
+                    f"{case_id}: {item_path}.{field_name} must be a non-empty string."
+                )
+        if item["id"] in requested_ids:
+            raise DatasetError(f"{case_id}: duplicate requested-information id {item['id']!r}.")
+        requested_ids.add(item["id"])
+
+        finding = item["finding"]
+        if not isinstance(finding, str) or finding not in ASSESSOR_FINDINGS:
+            raise DatasetError(f"{case_id}: {item_path} has unsupported finding {finding!r}.")
+        findings.add(finding)
+
+        evidence = validate_gold_evidence(
+            item["evidence"],
+            case_id=case_id,
+            field_name=f"{item_path}.evidence",
+        )
+        for reference in evidence:
+            if reference["source_id"] not in expected_source_ids:
+                raise DatasetError(
+                    f"{case_id}: {item_path} cites unexpected source "
+                    f"{reference['source_id']!r}."
+                )
+
+        answer = item["answer"]
+        if finding in DETERMINED_FINDINGS:
+            if not isinstance(answer, str) or not answer.strip() or not evidence:
+                raise DatasetError(
+                    f"{case_id}: {item_path} needs a declarative answer and evidence."
+                )
+        elif finding in {"related_but_not_supported", "conflicting"}:
+            if answer is not None or not evidence:
+                raise DatasetError(
+                    f"{case_id}: {item_path} needs null answer and evidence."
+                )
+            if finding == "conflicting" and len(
+                {(ref["source_id"], ref["section_path"]) for ref in evidence}
+            ) < 2:
+                raise DatasetError(
+                    f"{case_id}: conflicting gold needs evidence from at least "
+                    "two distinct source sections."
+                )
+        elif answer is not None or evidence:
+            raise DatasetError(
+                f"{case_id}: no_relevant_evidence gold must have null answer "
+                "and no evidence."
+            )
+
+    for index, fact in enumerate(supporting_facts):
+        fact_path = f"assessor_gold.supporting_facts[{index}]"
+        if not isinstance(fact, dict) or set(fact) != {"claim", "evidence"}:
+            raise DatasetError(f"{case_id}: {fact_path} has an invalid shape.")
+        if not isinstance(fact["claim"], str) or not fact["claim"].strip():
+            raise DatasetError(f"{case_id}: {fact_path}.claim must be a non-empty string.")
+        evidence = validate_gold_evidence(
+            fact["evidence"],
+            case_id=case_id,
+            field_name=f"{fact_path}.evidence",
+        )
+        if not evidence:
+            raise DatasetError(f"{case_id}: {fact_path} needs at least one evidence quote.")
+        for reference in evidence:
+            if reference["source_id"] not in expected_source_ids:
+                raise DatasetError(
+                    f"{case_id}: {fact_path} cites unexpected source "
+                    f"{reference['source_id']!r}."
+                )
+
+    if clarification_topics:
+        if expected_status != "clarification_needed":
+            raise DatasetError(
+                f"{case_id}: clarification topics conflict with expected status "
+                f"{expected_status!r}."
+            )
+        if requested_information or supporting_facts:
+            raise DatasetError(
+                f"{case_id}: clarification gold cannot include findings or supporting facts."
+            )
+    else:
+        if expected_status == "clarification_needed":
+            raise DatasetError(f"{case_id}: clarification_needed gold requires clarification topics.")
+        if not requested_information:
+            raise DatasetError(
+                f"{case_id}: non-clarification gold needs at least one requested-information item."
+            )
+
+    derived_status = aggregate_evidence_sufficiency_status(
+        findings,
+        has_supporting_facts=bool(supporting_facts),
+        clarification_needed=bool(clarification_topics),
+    )
+
+    if derived_status != expected_status:
+        raise DatasetError(
+            f"{case_id}: assessor_gold derives {derived_status!r}, "
+            f"but the evaluation dataset expects {expected_status!r}."
+        )
+
+
+def load_assessor_gold(
+    path: Path,
+    cases: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    gold_cases = load_cases(path, GOLD_REQUIRED_FIELDS)
+    cases_by_id = {case["id"]: case for case in cases}
+    gold_by_id = {case["id"]: case for case in gold_cases}
+    missing_ids = sorted(cases_by_id.keys() - gold_by_id.keys())
+    extra_ids = sorted(gold_by_id.keys() - cases_by_id.keys())
+    if missing_ids or extra_ids:
+        raise DatasetError(
+            f"Assessor gold case IDs do not match the evaluation dataset; "
+            f"missing={missing_ids}, extra={extra_ids}."
+        )
+
+    annotations: dict[str, dict[str, Any]] = {}
+    for case_id, case in cases_by_id.items():
+        gold_case = gold_by_id[case_id]
+        if gold_case["question"] != case["question"]:
+            raise DatasetError(
+                f"{case_id}: assessor gold question does not match the evaluation dataset."
+            )
+        assessor_gold = gold_case["assessor_gold"]
+        validate_assessor_gold(
+            case_id=case_id,
+            expected_status=case["evidence_sufficiency"],
+            expected_source_ids=set(case["expected_retrieval_source_ids"]),
+            assessor_gold=assessor_gold,
+        )
+        annotations[case_id] = assessor_gold
+    return annotations
 
 
 def select_cases(
@@ -222,7 +447,10 @@ def serialize_chunk(chunk: RetrievedChunk) -> dict[str, Any]:
     }
 
 
-def build_expected_result(case: dict[str, Any]) -> dict[str, Any]:
+def build_expected_result(
+    case: dict[str, Any],
+    assessor_gold: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "evidence_sufficiency": case["evidence_sufficiency"],
         "expected_action": case["expected_action"],
@@ -230,6 +458,7 @@ def build_expected_result(case: dict[str, Any]) -> dict[str, Any]:
         "required_answer_facts": case["supporting_facts"],
         "claims_to_avoid": case["claims_to_avoid"],
         "human_review_required": case["expected_human_review"],
+        "assessor_gold": assessor_gold,
     }
 
 
@@ -252,9 +481,48 @@ def source_retrieval_metrics(
     }
 
 
+def gold_evidence_retrieval_metrics(
+    *,
+    assessor_gold: dict[str, Any],
+    chunks: tuple[RetrievedChunk, ...],
+) -> dict[str, Any]:
+    evidence_references = [
+        reference
+        for item in assessor_gold["requested_information"]
+        for reference in item["evidence"]
+    ]
+    evidence_references.extend(
+        reference
+        for fact in assessor_gold["supporting_facts"]
+        for reference in fact["evidence"]
+    )
+
+    missing_references = [
+        reference
+        for reference in evidence_references
+        if not any(
+            chunk.source_id == reference["source_id"]
+            and chunk.section_path == reference["section_path"]
+            and reference["quote"] in chunk.text
+            for chunk in chunks
+        )
+    ]
+    return {
+        "expected_quote_count": len(evidence_references),
+        "retrieved_quote_count": len(evidence_references) - len(missing_references),
+        "all_expected_quotes_retrieved": not missing_references,
+        "missing_quotes": missing_references,
+    }
+
+
+def is_false_sufficient_status(*, actual_status: str, expected_status: str) -> bool:
+    return actual_status == "sufficient" and expected_status != "sufficient"
+
+
 def evaluate_case(
     *,
     case: dict[str, Any],
+    assessor_gold: dict[str, Any],
     assessor: OllamaEvidenceAssessor,
     api_base_url: str,
     retrieval_timeout_seconds: float,
@@ -269,6 +537,10 @@ def evaluate_case(
     )
     chunks = parse_retrieved_chunks(retrieval_response["hits"], case_id=case["id"])
     retrieval_elapsed = time.perf_counter() - retrieval_started
+    gold_evidence_metrics = gold_evidence_retrieval_metrics(
+        assessor_gold=assessor_gold,
+        chunks=chunks,
+    )
 
     assessment_started = time.perf_counter()
     decision = assessor.assess(
@@ -280,12 +552,13 @@ def evaluate_case(
     return {
         "id": case["id"],
         "question": case["question"],
-        "expected": build_expected_result(case),
+        "expected": build_expected_result(case, assessor_gold),
         "retrieval": {
             **source_retrieval_metrics(
                 expected_source_ids=case["expected_retrieval_source_ids"],
                 chunks=chunks,
             ),
+            "assessor_gold_evidence": gold_evidence_metrics,
             "elapsed_seconds": round(retrieval_elapsed, 3),
             "chunks": [serialize_chunk(chunk) for chunk in chunks],
         },
@@ -293,6 +566,13 @@ def evaluate_case(
         "checks": {
             "status_matches_expected": (
                 decision.status == case["evidence_sufficiency"]
+            ),
+            "false_sufficient": is_false_sufficient_status(
+                actual_status=decision.status,
+                expected_status=case["evidence_sufficiency"],
+            ),
+            "gold_evidence_retrieved": (
+                gold_evidence_metrics["all_expected_quotes_retrieved"]
             ),
             "assessment_contract_validation_passed": True,
         },
@@ -336,6 +616,36 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(result.get("retrieval"), dict)
         and isinstance(result["retrieval"].get("source_recall_at_k"), (int, float))
     ]
+    evaluated_results = [
+        result
+        for result in results
+        if isinstance(result.get("checks"), dict)
+        and isinstance(result["checks"].get("false_sufficient"), bool)
+    ]
+    non_sufficient_results = [
+        result
+        for result in evaluated_results
+        if result.get("expected", {}).get("evidence_sufficiency") != "sufficient"
+    ]
+    false_sufficient_ids = [
+        result["id"]
+        for result in non_sufficient_results
+        if result["checks"]["false_sufficient"]
+    ]
+    gold_evidence_results = [
+        result["retrieval"]["assessor_gold_evidence"]
+        for result in results
+        if isinstance(result.get("retrieval"), dict)
+        and isinstance(result["retrieval"].get("assessor_gold_evidence"), dict)
+    ]
+    expected_gold_quotes = sum(
+        evidence_result["expected_quote_count"]
+        for evidence_result in gold_evidence_results
+    )
+    retrieved_gold_quotes = sum(
+        evidence_result["retrieved_quote_count"]
+        for evidence_result in gold_evidence_results
+    )
     return {
         "cases_attempted": len(results),
         "status_evaluated_cases": len(status_matches),
@@ -347,6 +657,16 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "mean_source_recall_at_k": (
             round(statistics.mean(source_recalls), 4) if source_recalls else None
+        ),
+        "non_sufficient_cases_evaluated": len(non_sufficient_results),
+        "false_sufficient_count": len(false_sufficient_ids),
+        "false_sufficient_case_ids": false_sufficient_ids,
+        "expected_gold_quote_count": expected_gold_quotes,
+        "retrieved_gold_quote_count": retrieved_gold_quotes,
+        "gold_quote_recall": (
+            round(retrieved_gold_quotes / expected_gold_quotes, 4)
+            if expected_gold_quotes
+            else None
         ),
         "mean_retrieval_seconds": (
             round(statistics.mean(retrieval_times), 3) if retrieval_times else None
@@ -361,6 +681,7 @@ def save_artifact(
     *,
     repo_root: Path,
     dataset: Path,
+    gold_dataset: Path,
     api_base_url: str,
     model_name: str,
     results: list[dict[str, Any]],
@@ -384,6 +705,7 @@ def save_artifact(
         "evaluation": "evidence-assessor-pilot",
         "timestamp_utc": timestamp.isoformat(),
         "dataset": str(dataset),
+        "assessor_gold_dataset": str(gold_dataset),
         "api_base_url": api_base_url.rstrip("/"),
         "assessor_model": model_name,
         "scope": (
@@ -437,9 +759,28 @@ def print_summary(
         f"\nStatus matches: {summary['status_matches']}/"
         f"{summary['status_evaluated_cases']}"
     )
+    print(
+        "False-sufficient decisions: "
+        f"{summary['false_sufficient_count']}/"
+        f"{summary['non_sufficient_cases_evaluated']} non-sufficient cases"
+    )
+    if summary["false_sufficient_case_ids"]:
+        print(
+            "False-sufficient case IDs: "
+            + ", ".join(summary["false_sufficient_case_ids"])
+        )
+    print(
+        "Gold evidence quotes retrieved: "
+        f"{summary['retrieved_gold_quote_count']}/"
+        f"{summary['expected_gold_quote_count']} "
+        f"(recall {summary['gold_quote_recall']})"
+    )
     print(f"Mean retrieval time: {summary['mean_retrieval_seconds']} seconds")
     print(f"Mean assessor time: {summary['mean_assessment_seconds']} seconds")
-    print("Claim/fact correctness and action fit require manual review in the artifact.")
+    print(
+        "Requested-information alignment, answer/fact correctness, and action fit "
+        "still require manual review in the artifact."
+    )
     if run_error:
         print(f"Run error: {run_error}")
     print(f"Artifact: {artifact_path}")
@@ -457,6 +798,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=repo_root / "docs" / "evals" / "rag-week3-v1.jsonl",
         help="Path to the evaluation JSONL dataset.",
+    )
+    parser.add_argument(
+        "--gold-dataset",
+        type=Path,
+        default=repo_root / "docs" / "evals" / "evidence-assessor-gold-v1.jsonl",
+        help="Path to requested-information and evidence gold annotations.",
     )
     parser.add_argument(
         "--api-base-url",
@@ -496,10 +843,16 @@ def main() -> int:
 
     repo_root = Path(__file__).resolve().parents[1]
     dataset = args.dataset if args.dataset.is_absolute() else repo_root / args.dataset
+    gold_dataset = (
+        args.gold_dataset
+        if args.gold_dataset.is_absolute()
+        else repo_root / args.gold_dataset
+    )
     try:
         cases = load_cases(dataset, REQUIRED_FIELDS)
         for case in cases:
             validate_case(case)
+        assessor_gold_by_id = load_assessor_gold(gold_dataset, cases)
         selected_cases = select_cases(
             cases,
             case_ids=args.case_ids,
@@ -527,6 +880,7 @@ def main() -> int:
             results.append(
                 evaluate_case(
                     case=case,
+                    assessor_gold=assessor_gold_by_id[case["id"]],
                     assessor=assessor,
                     api_base_url=args.api_base_url,
                     retrieval_timeout_seconds=args.timeout_seconds,
@@ -538,7 +892,10 @@ def main() -> int:
                 {
                     "id": case["id"],
                     "question": case["question"],
-                    "expected": build_expected_result(case),
+                    "expected": build_expected_result(
+                        case,
+                        assessor_gold_by_id[case["id"]],
+                    ),
                     "error": str(exc),
                 }
             )
@@ -549,6 +906,7 @@ def main() -> int:
         artifact_path = save_artifact(
             repo_root=repo_root,
             dataset=dataset,
+            gold_dataset=gold_dataset,
             api_base_url=args.api_base_url,
             model_name=settings.evidence_assessor_model,
             results=results,
@@ -567,7 +925,9 @@ def main() -> int:
     if run_error:
         return 3
     return 0 if all(
-        result["checks"]["status_matches_expected"] for result in results
+        result["checks"]["status_matches_expected"]
+        and result["checks"]["gold_evidence_retrieved"]
+        for result in results
     ) else 1
 
 

@@ -1,0 +1,155 @@
+{
+  "evaluation": "evidence-assessor-pilot",
+  "timestamp_utc": "2026-10-13T16:51:16.382611+00:00",
+  "dataset": "/app/docs/evals/rag-week3-v1.jsonl",
+  "assessor_gold_dataset": "/app/docs/evals/evidence-assessor-gold-v1.jsonl",
+  "api_base_url": "http://host.docker.internal:8000",
+  "assessor_model": "qwen3:4b",
+  "scope": "Calls the retrieval endpoint and standalone evidence assessor. Does not call the support-draft endpoint or create a human-review task.",
+  "summary": {
+    "cases_attempted": 1,
+    "status_evaluated_cases": 1,
+    "status_matches": 0,
+    "status_match_rate": 0.0,
+    "mean_source_recall_at_k": 1.0,
+    "non_sufficient_cases_evaluated": 1,
+    "false_sufficient_count": 0,
+    "false_sufficient_case_ids": [],
+    "expected_gold_quote_count": 1,
+    "retrieved_gold_quote_count": 1,
+    "gold_quote_recall": 1.0,
+    "mean_retrieval_seconds": 7.99,
+    "mean_assessment_seconds": 59.431,
+    "run_elapsed_seconds": 67.421,
+    "run_error": null
+  },
+  "results": [
+    {
+      "id": "ar-002-reset-link-expiry-unsupported",
+      "question": "How long is the password reset link valid before it expires?",
+      "expected": {
+        "evidence_sufficiency": "insufficient",
+        "expected_action": "state_duration_not_specified_and_escalate",
+        "expected_retrieval_source_ids": [
+          "account-recovery-01"
+        ],
+        "required_answer_facts": [
+          "The source does not specify a reset-link expiry duration."
+        ],
+        "claims_to_avoid": [
+          "Any specific reset-link expiry duration."
+        ],
+        "human_review_required": true,
+        "assessor_gold": {
+          "requested_information": [
+            {
+              "id": "reset-link-expiry",
+              "requested_information": "password-reset link expiry duration",
+              "finding": "related_but_not_supported",
+              "answer": null,
+              "evidence": [
+                {
+                  "source_id": "account-recovery-01",
+                  "section_path": "Password reset",
+                  "quote": "The reset link is sent only to the email address already associated with the account."
+                }
+              ]
+            }
+          ],
+          "supporting_facts": [],
+          "clarification_topics": []
+        }
+      },
+      "retrieval": {
+        "expected_source_ids": [
+          "account-recovery-01"
+        ],
+        "actual_source_ids": [
+          "account-recovery-01"
+        ],
+        "missing_source_ids": [],
+        "other_retrieved_source_ids": [],
+        "source_recall_at_k": 1.0,
+        "assessor_gold_evidence": {
+          "expected_quote_count": 1,
+          "retrieved_quote_count": 1,
+          "all_expected_quotes_retrieved": true,
+          "missing_quotes": []
+        },
+        "elapsed_seconds": 7.99,
+        "chunks": [
+          {
+            "chunk_id": "740631e4-e0df-545c-852c-cfb58641f75f",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 2,
+            "section_path": "Password reset",
+            "text": "A user who can access the email address currently associated with their account can begin a password reset from the sign-in page by selecting Forgot password. The reset link is sent only to the email address already associated with the account. Support must never ask a user to share a password, reset link, or one-time verification code. Support cannot disclose an existing password or bypass multi-factor authentication.",
+            "cosine_distance": 0.29727714446799725
+          },
+          {
+            "chunk_id": "d8877785-ffde-5366-b33f-9fe477c19fc3",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 4,
+            "section_path": "Account security concerns",
+            "text": "A report of suspected unauthorized access, or a request to bypass multi-factor authentication, requires human security review. Do not promise that access will be restored before the required review is complete.",
+            "cosine_distance": 0.4352833397209417
+          },
+          {
+            "chunk_id": "ca2bcc54-1830-5077-856e-efdb524bdea8",
+            "source_id": "account-recovery-01",
+            "title": "Synthetic Account Recovery Procedure",
+            "policy_version": "week3-synthetic-v1",
+            "effective_date": "2026-10-06",
+            "access_scope": "internal",
+            "chunk_index": 3,
+            "section_path": "Lost access to the account email",
+            "text": "If a user cannot access the email address currently associated with their account, support must not change the account email based only on a support request. The user must complete human identity verification before support changes the email address or helps restore account access.",
+            "cosine_distance": 0.45026230671657275
+          }
+        ]
+      },
+      "assessment": {
+        "status": "none",
+        "action": "abstain_and_escalate",
+        "requested_information": [
+          {
+            "requested_information": "password-reset link expiry duration",
+            "finding": "no_relevant_evidence",
+            "answer": null,
+            "evidence": []
+          }
+        ],
+        "supporting_facts": [],
+        "clarifying_question": null
+      },
+      "checks": {
+        "status_matches_expected": false,
+        "false_sufficient": false,
+        "gold_evidence_retrieved": true,
+        "assessment_contract_validation_passed": true
+      },
+      "latency": {
+        "retrieval_seconds": 7.99,
+        "assessment_seconds": 59.431,
+        "case_total_seconds": 67.421
+      },
+      "manual_review": {
+        "requested_information_coverage_correct": null,
+        "answer_matches_evidence": null,
+        "answer_is_declarative": null,
+        "required_answer_facts_covered": null,
+        "unsupported_claims_present": null,
+        "recommended_action_appropriate": null,
+        "notes": ""
+      }
+    }
+  ]
+}

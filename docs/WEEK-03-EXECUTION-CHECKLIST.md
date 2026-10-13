@@ -142,6 +142,24 @@ runtime can distinguish these evidence-sufficiency labels. The close
 `ar-002` match is covered by a regression test to ensure distance is never
 treated as evidence sufficiency.
 
+Assessor gold-label diagnostic (2026-10-13): added
+[`evidence-assessor-gold-v1.jsonl`](./evals/evidence-assessor-gold-v1.jsonl),
+which decomposes all 12 fixed questions into requested information, findings,
+answers where determined, stable source/section/exact-quote references,
+supporting facts, and clarification topics. The annotations reproduce the
+existing aggregate labels. A retrieval-only check found all 17 gold quotes
+across the eight cases that require evidence (Recall@3 = 1.00); this verifies
+retrievability, not assessor correctness. The set still has no
+conflicting-evidence case.
+
+A focused Qwen3:4b run on `ar-002` returned `none`/`no_relevant_evidence`
+instead of the gold `insufficient`/`related_but_not_supported`. Its gold
+passage was retrieved, so this is an assessor classification mismatch, but not
+a false-sufficient decision (0/1 non-sufficient cases). Retrieval took 7.99
+seconds and assessment took 59.431 seconds. See the
+[pilot artifact](./evals/results/evidence-assessor-pilot-20261013T165116Z.json).
+One case is diagnostic only; the no-false-sufficient gate is not passed.
+
 Risk preference (2026-10-10): false accepts are considered costlier than false
 rejects, so a future evidence gate should favor conservative human escalation
 when retrieval is uncertain. This is an evaluation preference, not a numeric
