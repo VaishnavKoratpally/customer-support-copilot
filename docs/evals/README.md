@@ -164,6 +164,28 @@ docker compose run --rm --no-deps -T `
   api python -m unittest discover -s scripts -p "test_evidence_assessor_pilot.py" -v
 ```
 
+Development prompt calibration (2026-10-14): stronger decision rules,
+ordered instructions, synthetic few-shot examples, and a proposal-field-order
+experiment did not pass the five-case pilot. One complete run regressed to
+2/5; other variants mixed clarification with facts, duplicated an answer,
+or made a false-sufficient decision. The original prompt and schema order
+were restored rather than retaining weaker behavior. Gold labels, quote
+validation, and aggregation rules were unchanged; the held-out set was not
+rerun or used for tuning. The restored five-case Qwen3:4b baseline again
+matched 3/5 statuses, with 0/4 false-sufficient decisions, 6/6 gold quotes,
+and mean complete assessment time of 3.328 s.
+
+A temporary Qwen3:14b comparison on just the two misses matched the expiry
+case but returned `insufficient` instead of `clarification_needed` for the
+ambiguous-access case: 1/2 status matches, 0/2 false-sufficient decisions.
+Both outputs completed without truncation. Complete assessment times were
+11.365 s and 190.913 s; decode times were 3.545 s and 189.652 s. Ollama
+reported 100% GPU placement and a 4096-token context, but hardware was not
+sampled continuously during those calls, so the second call's slowdown is
+not attributed to a confirmed cause. This was not a full five-case 14B run.
+The application remains configured for Qwen3:4b and the assessor remains
+standalone; neither model has passed the requested development target.
+
 ### Frozen held-out assessor evaluation
 
 `evidence-assessor-heldout-v1.jsonl` and
