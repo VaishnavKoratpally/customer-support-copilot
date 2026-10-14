@@ -93,6 +93,8 @@ def validate_case(case: dict[str, Any]) -> None:
         raise DatasetError(f"{case_id}: expected_action must be a non-empty string.")
     if not isinstance(case["expected_human_review"], bool):
         raise DatasetError(f"{case_id}: expected_human_review must be a boolean.")
+    if "retrieval_fixture_hits" in case:
+        parse_retrieval_fixture_chunks(case)
 
 
 def validate_gold_evidence(
@@ -432,6 +434,40 @@ def parse_retrieved_chunks(
     return tuple(chunks)
 
 
+def parse_retrieval_fixture_chunks(
+    case: dict[str, Any],
+) -> tuple[RetrievedChunk, ...]:
+    case_id = case["id"]
+    hits = case.get("retrieval_fixture_hits")
+    if not isinstance(hits, list) or not hits:
+        raise DatasetError(
+            f"{case_id}: retrieval_fixture_hits must be a non-empty list."
+        )
+    if len(hits) > case["top_k"]:
+        raise DatasetError(
+            f"{case_id}: retrieval fixture contains more hits than top_k."
+        )
+
+    try:
+        chunks = parse_retrieved_chunks(hits, case_id=case_id)
+    except RetrievalAPIError as exc:
+        raise DatasetError(
+            f"{case_id}: invalid retrieval fixture: {exc}"
+        ) from exc
+
+    if len({chunk.chunk_id for chunk in chunks}) != len(chunks):
+        raise DatasetError(f"{case_id}: retrieval fixture chunk IDs must be unique.")
+    fixture_source_ids = {chunk.source_id for chunk in chunks}
+    expected_source_ids = set(case["expected_retrieval_source_ids"])
+    if not expected_source_ids.issubset(fixture_source_ids):
+        missing_source_ids = sorted(expected_source_ids - fixture_source_ids)
+        raise DatasetError(
+            f"{case_id}: retrieval fixture is missing expected sources "
+            f"{missing_source_ids}."
+        )
+    return chunks
+
+
 def serialize_chunk(chunk: RetrievedChunk) -> dict[str, Any]:
     return {
         "chunk_id": str(chunk.chunk_id),
@@ -528,15 +564,24 @@ def evaluate_case(
     retrieval_timeout_seconds: float,
 ) -> dict[str, Any]:
     case_started = time.perf_counter()
-    retrieval_started = time.perf_counter()
-    retrieval_response = call_retrieval(
-        api_base_url=api_base_url,
-        question=case["question"],
-        top_k=case["top_k"],
-        timeout_seconds=retrieval_timeout_seconds,
-    )
-    chunks = parse_retrieved_chunks(retrieval_response["hits"], case_id=case["id"])
-    retrieval_elapsed = time.perf_counter() - retrieval_started
+    if "retrieval_fixture_hits" in case:
+        retrieval_mode = "fixture"
+        chunks = parse_retrieval_fixture_chunks(case)
+        retrieval_elapsed = None
+    else:
+        retrieval_mode = "api"
+        retrieval_started = time.perf_counter()
+        retrieval_response = call_retrieval(
+            api_base_url=api_base_url,
+            question=case["question"],
+            top_k=case["top_k"],
+            timeout_seconds=retrieval_timeout_seconds,
+        )
+        chunks = parse_retrieved_chunks(
+            retrieval_response["hits"],
+            case_id=case["id"],
+        )
+        retrieval_elapsed = time.perf_counter() - retrieval_started
     gold_evidence_metrics = gold_evidence_retrieval_metrics(
         assessor_gold=assessor_gold,
         chunks=chunks,
@@ -554,12 +599,17 @@ def evaluate_case(
         "question": case["question"],
         "expected": build_expected_result(case, assessor_gold),
         "retrieval": {
+            "mode": retrieval_mode,
             **source_retrieval_metrics(
                 expected_source_ids=case["expected_retrieval_source_ids"],
                 chunks=chunks,
             ),
             "assessor_gold_evidence": gold_evidence_metrics,
-            "elapsed_seconds": round(retrieval_elapsed, 3),
+            "elapsed_seconds": (
+                round(retrieval_elapsed, 3)
+                if retrieval_elapsed is not None
+                else None
+            ),
             "chunks": [serialize_chunk(chunk) for chunk in chunks],
         },
         "assessment": decision.model_dump(mode="json"),
@@ -577,7 +627,11 @@ def evaluate_case(
             "assessment_contract_validation_passed": True,
         },
         "latency": {
-            "retrieval_seconds": round(retrieval_elapsed, 3),
+            "retrieval_seconds": (
+                round(retrieval_elapsed, 3)
+                if retrieval_elapsed is not None
+                else None
+            ),
             "assessment_seconds": round(assessment_elapsed, 3),
             "case_total_seconds": round(time.perf_counter() - case_started, 3),
         },
@@ -604,6 +658,7 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         result["latency"]["retrieval_seconds"]
         for result in results
         if isinstance(result.get("latency"), dict)
+        and isinstance(result["latency"].get("retrieval_seconds"), (int, float))
     ]
     assessment_times = [
         result["latency"]["assessment_seconds"]
@@ -614,6 +669,7 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         result["retrieval"]["source_recall_at_k"]
         for result in results
         if isinstance(result.get("retrieval"), dict)
+        and result["retrieval"].get("mode") != "fixture"
         and isinstance(result["retrieval"].get("source_recall_at_k"), (int, float))
     ]
     evaluated_results = [
@@ -636,6 +692,7 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         result["retrieval"]["assessor_gold_evidence"]
         for result in results
         if isinstance(result.get("retrieval"), dict)
+        and result["retrieval"].get("mode") != "fixture"
         and isinstance(result["retrieval"].get("assessor_gold_evidence"), dict)
     ]
     expected_gold_quotes = sum(
@@ -709,7 +766,8 @@ def save_artifact(
         "api_base_url": api_base_url.rstrip("/"),
         "assessor_model": model_name,
         "scope": (
-            "Calls the retrieval endpoint and standalone evidence assessor. "
+            "Uses API retrieval by default and case-local fixture chunks only "
+            "when explicitly present; calls the standalone evidence assessor. "
             "Does not call the support-draft endpoint or create a human-review task."
         ),
         "summary": {
@@ -738,7 +796,10 @@ def print_summary(
     run_error: str | None,
 ) -> None:
     print("\nEvidence assessor pilot")
-    print("case_id | expected | actual | status match | retrieval s | assessment s")
+    print(
+        "case_id | retrieval mode | expected | actual | status match | "
+        "retrieval s | assessment s"
+    )
     print("-" * 90)
     for result in results:
         assessment = result.get("assessment")
@@ -746,12 +807,13 @@ def print_summary(
         actual = assessment.get("status", "error") if isinstance(assessment, dict) else "error"
         checks = result.get("checks", {})
         match = checks.get("status_matches_expected", "n/a")
+        retrieval_mode = result.get("retrieval", {}).get("mode", "n/a")
         latency = result.get("latency", {})
         retrieval_seconds = latency.get("retrieval_seconds", "n/a")
         assessment_seconds = latency.get("assessment_seconds", "n/a")
         print(
-            f"{result['id']} | {expected} | {actual} | {match} | "
-            f"{retrieval_seconds} | {assessment_seconds}"
+            f"{result['id']} | {retrieval_mode} | {expected} | {actual} | "
+            f"{match} | {retrieval_seconds} | {assessment_seconds}"
         )
 
     summary = summarize_results(results)
@@ -790,7 +852,7 @@ def parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(
         description=(
-            "Run the five-case evidence-assessor pilot using real retrieval and Ollama."
+            "Run an evidence-assessor evaluation using retrieval and Ollama."
         )
     )
     parser.add_argument(

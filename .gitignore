@@ -12,3 +12,4 @@ coverage/
 LEARNING-CONTRACT.md
 .vscode/settings.json
 services/api/.vscode/settings.json
+docs/evals/results/*.json

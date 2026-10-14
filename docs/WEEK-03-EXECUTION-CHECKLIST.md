@@ -58,6 +58,47 @@ Design evidence for evidence sufficiency is captured in [ADR-008](./adr/008-clai
 
 The standalone local assessor requests schema-constrained output from Ollama and validates it against the typed proposal and retrieved chunks. Unit tests cover aggregation, parsing, provider failures, duplicates, and quote validation. Initial real-model checks have not passed: Qwen3:4b returned schema-valid but incorrect assessments, including `none` despite relevant evidence and, in an experimental prompt variant, a duplicate claim with an unsupported quote-to-claim relationship. Requests with Qwen3:4b thinking enabled, Qwen3:14b, and the revised separated-claim schema exceeded 180-second, 240-second, and 180-second client timeouts, respectively. These are failure observations, not a benchmark. Do not wire the assessor into `/v1/support/draft` until labeled evaluation demonstrates acceptable claim coverage and no false-sufficient decisions.
 
+Prompt-calibration follow-up (2026-10-13): the best prompt-only variant matched the
+two targeted misses (`ar-002` and `ar-005`) but did not improve the full five-case
+pilot: 3/5 aggregate statuses matched, false-sufficient remained 0/4, all 6/6
+gold quotes were retrieved.
+It regressed `bi-005` to `insufficient` without supporting facts and
+`oc-001` to `insufficient` by treating unrelated billing passages as relevant.
+A further prompt expansion failed retrieved-chunk/quote validation on
+`ar-005` after two successful cases.
+The experimental prompt was discarded and the prior prompt retained. No variant
+passed the pilot as a whole; keep the assessor standalone and treat these cases
+as tuning data, not independent validation. Add held-out cases or revisit the
+model/assessment approach before another tuning cycle.
+
+Held-out assessor set (2026-10-13): added a separate eight-case dataset and
+atomic gold labels covering all six statuses, including an isolated conflicting
+evidence fixture that is never indexed into the live corpus. The evaluator
+contract tests pass (8/8). A retrieval-only preflight of the seven API-backed
+cases found all 7/7 expected source IDs and all 10/10 gold quotes at `top_k=3`;
+the no-relevant-evidence query still returns unrelated nearest neighbors, so
+this is not evidence of safe assessor abstention. The fixture tests conflict
+handling only at the assessor input, not conflict retrieval.
+
+The single no-tuning Qwen3:4b run matched 5/8 expected statuses (62.5%) and
+made no false-sufficient decisions among 5 non-sufficient cases. It retrieved
+10/10 gold quotes and had source recall@3 of 1.00; mean retrieval latency was
+1.494 seconds and mean assessor latency was 172.951 seconds. Status mismatches
+were `heldout-ar-verification-duration` (`none` vs `insufficient`),
+`heldout-bi-ambiguous-statement` (`partial` vs `clarification_needed`), and
+`heldout-bi-final-resolution-date` (`none` vs `sufficient`). These automatic
+checks do not establish request coverage or semantic answer correctness; the
+artifact's manual-review fields remain unscored. Do not tune against this
+holdout or wire the assessor into draft. See the
+[held-out evaluation runbook](./evals/README.md#frozen-held-out-assessor-evaluation).
+
+Powered development rerun (2026-10-13): with the supplied laptop adapter,
+the unchanged five-case pilot averaged 3.711 seconds per complete assessment
+and 3.081 seconds of generation, completing in 20.645 seconds without output
+truncation. Status agreement remained 3/5, false-sufficient decisions 0/4,
+and gold-quote recall 6/6. The power-source fix enables prompt iteration but
+does not pass the evidence gate. See the [local GPU power check](./evals/README.md#local-gpu-power-check).
+
 ### Deferred: generated-answer integration
 
 `/v1/support/draft` now uses real pgvector retrieval in preview-only mode. With
@@ -159,6 +200,18 @@ a false-sufficient decision (0/1 non-sufficient cases). Retrieval took 7.99
 seconds and assessment took 59.431 seconds. See the
 [pilot artifact](./evals/results/evidence-assessor-pilot-20261013T165116Z.json).
 One case is diagnostic only; the no-false-sufficient gate is not passed.
+
+Five-case assessor pilot (2026-10-13, Qwen3:4b):
+The aggregate status matched in 3/5 cases, with 0 false-sufficient outcomes
+among 4 non-sufficient cases. Source recall@3 was 1.00 and all 6 gold quotes
+for this pilot were retrieved. Mean retrieval latency was 3.013 seconds; mean
+assessor latency was 210.738 seconds, with 1,068.762 seconds total run time.
+`ar-002` was classified `none` rather than `insufficient`; `ar-005` was
+classified `partial` rather than asking for clarification. `bi-005` matched
+the aggregate `partial` label but its proposal omitted the gold fact that a
+duplicate charge is reversed only if confirmed. Thus status agreement alone
+does not establish request coverage or fact completeness. This five-case run
+does not cover conflicting evidence and does not pass the sufficiency gate.
 
 Risk preference (2026-10-10): false accepts are considered costlier than false
 rejects, so a future evidence gate should favor conservative human escalation

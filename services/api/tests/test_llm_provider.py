@@ -53,6 +53,55 @@ class OllamaLLMProviderTests(unittest.TestCase):
         self.assertEqual(request_payload["options"]["temperature"], 0)
         self.assertEqual(request_payload["options"]["num_predict"], 1024)
 
+    def test_generate_structured_with_metrics_captures_ollama_timings(self):
+        response = {
+            "response": '{"supported": true}',
+            "total_duration": 12_000_000_000,
+            "load_duration": 2_000_000_000,
+            "prompt_eval_count": 140,
+            "prompt_eval_duration": 3_000_000_000,
+            "eval_count": 35,
+            "eval_duration": 7_000_000_000,
+            "done_reason": "stop",
+        }
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse(response),
+        ):
+            result = self.provider.generate_structured_with_metrics(
+                model_name="qwen3:4b",
+                system_prompt="Assess evidence.",
+                user_prompt="Is the claim supported?",
+                response_schema={"type": "object"},
+            )
+
+        self.assertEqual(result.text, '{"supported": true}')
+        self.assertEqual(result.metrics.total_duration_ns, 12_000_000_000)
+        self.assertEqual(result.metrics.load_duration_ns, 2_000_000_000)
+        self.assertEqual(result.metrics.prompt_eval_count, 140)
+        self.assertEqual(result.metrics.prompt_eval_duration_ns, 3_000_000_000)
+        self.assertEqual(result.metrics.eval_count, 35)
+        self.assertEqual(result.metrics.eval_duration_ns, 7_000_000_000)
+        self.assertEqual(result.metrics.done_reason, "stop")
+
+    def test_generate_structured_with_metrics_rejects_invalid_counts(self):
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse(
+                {"response": '{"supported": true}', "eval_count": "35"}
+            ),
+        ):
+            with self.assertRaisesRegex(
+                OllamaProviderError,
+                "eval_count.*non-negative integer",
+            ):
+                self.provider.generate_structured_with_metrics(
+                    model_name="qwen3:4b",
+                    system_prompt="Assess evidence.",
+                    user_prompt="Is the claim supported?",
+                    response_schema={"type": "object"},
+                )
+
     def test_draft_response_keeps_existing_generation_parameters(self):
         with patch(
             "urllib.request.urlopen",

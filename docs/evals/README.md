@@ -1,5 +1,14 @@
 # Evaluation datasets and runbooks
 
+## Result retention
+
+Evaluation datasets and gold labels are versioned inputs. Generated result
+JSONs under `docs/evals/results/` are local, Git-ignored outputs; retain useful
+runs for debugging and record key conclusions in this runbook or the execution
+checklist. Existing committed baseline snapshots remain tracked. A fresh
+checkout does not contain the newer local runs: generate a development pilot
+before using its cached results as profiler input.
+
 ## Week 3 vector retrieval diagnostic
 
 Dataset: `rag-week3-v1.jsonl`
@@ -154,3 +163,119 @@ docker compose run --rm --no-deps -T `
   --env PYTHONPATH=/app `
   api python -m unittest discover -s scripts -p "test_evidence_assessor_pilot.py" -v
 ```
+
+### Frozen held-out assessor evaluation
+
+`evidence-assessor-heldout-v1.jsonl` and
+`evidence-assessor-heldout-gold-v1.jsonl` form a separate, frozen eight-case
+evaluation set. It covers all six assessor statuses, including one conflicting
+evidence case. Seven cases use the live retrieval API; the conflict case uses
+explicit `retrieval_fixture_hits` stored only in the evaluation dataset. Those
+fixture chunks are never added to the indexed support corpus and do not test
+conflict retrieval.
+
+Run all eight cases once with the current, unchanged assessor prompt:
+
+```powershell
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  --env PYTHONPATH=/app `
+  api python /evaluation/scripts/evidence_assessor_pilot.py `
+    --dataset /evaluation/docs/evals/evidence-assessor-heldout-v1.jsonl `
+    --gold-dataset /evaluation/docs/evals/evidence-assessor-heldout-gold-v1.jsonl `
+    --api-base-url http://host.docker.internal:8000 `
+    --all-cases
+```
+
+The API must be reachable on host port `8000`; the runner calls the configured
+Ollama model directly for each case. A full run makes eight assessor calls and
+can take many minutes. It writes a timestamped artifact under
+`docs/evals/results/`. Do not tune the prompt against this held-out set; use
+the result to judge the current approach, then make changes using development
+cases and evaluate them on a future independent set.
+
+The cases are separate from the original pilot questions but reuse its
+synthetic source corpus, so this is not corpus-held-out validation. Aggregate
+retrieval recall, gold-quote recall, and retrieval latency include only the
+seven API-backed cases. Status agreement, false-sufficient counts, and
+assessor latency include the fixture case; its per-case retrieval mode is
+marked `fixture`.
+
+### Single-call assessor performance profile
+
+Use a development case and its cached retrieval hits to profile exactly one
+assessor generation without re-running retrieval or the embedding model. The
+profile records whether the assessor model was already loaded, Ollama's prompt
+and generated token counts, model-load/prompt-evaluation/generation durations,
+and `/api/ps` model-memory data. This avoids spending another inference call
+just to warm the model.
+
+Set `$pilotArtifactName` to the filename printed by a previous development
+pilot containing `bi-005`; do not use a held-out or fixture-only artifact.
+
+```powershell
+$pilotArtifactName = "evidence-assessor-pilot-<UTC timestamp>.json"
+
+docker compose run --rm --no-deps -T `
+  --volume ".\services\api\app:/app/app:ro" `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  --env PYTHONPATH=/app `
+  api python /evaluation/scripts/evidence_assessor_profile.py `
+    --case-id bi-005-credit-posting-date-partial-evidence `
+    --retrieval-artifact "/evaluation/docs/evals/results/$pilotArtifactName"
+```
+
+The profile reuses the saved API-retrieved chunks for the development case; its
+cached retrieval latency is historical and is not remeasured. It writes a
+timestamped artifact under `docs/evals/results/`. Immediately afterward,
+`docker compose exec -T ollama ollama ps` reports Ollama's processor placement
+(CPU/GPU split); the artifact's `size_vram` versus `size` fields provide a
+memory-allocation cross-check, not a substitute for the processor report.
+
+### Local GPU power check
+
+Use the laptop's supplied adapter for inference, not just monitor USB-C power.
+`100% GPU` describes model placement, not GPU clocks or performance; high CPU
+activity alone does not establish layer offload. When throughput is unexpectedly
+low, inspect `nvidia-smi -q -d PERFORMANCE,POWER,CLOCK` during generation.
+
+A local diagnostic (2026-10-13, Qwen3:4b, RTX PRO 3000 Blackwell Laptop GPU)
+compared the same cached `bi-005` prompt and model digest before and after
+connecting the supplied Dell adapter. Both requests were schema-constrained,
+used 1,084 prompt tokens, and started with the model unloaded. Diagnostic
+options were `num_predict=128`, `num_ctx=4096`, `temperature=0`, `seed=42`,
+`think=false`, and non-streaming output; the normal assessor cap was unchanged.
+
+| Observation | Monitor-only power | Supplied Dell adapter |
+| --- | ---: | ---: |
+| Generated tokens | 128 | 128 |
+| Generation seconds | 89.997 | 1.315 |
+| Generated tokens/second | 1.422 | 97.353 |
+| Client wall seconds | 112.992 | 5.012 |
+| Mean GPU core clock during estimated generation | 180 MHz | 2351 MHz |
+| GPU memory clock during estimated generation | 405 MHz | 11001 MHz |
+| Mean GPU power during estimated generation | 15.35 W | 104.51 W |
+| GPU performance state during estimated generation | P8 | P1 |
+
+Generation throughput improved **68.45x in this capped comparison**. Windows
+remained Balanced; no prompt, model, driver, or application settings changed.
+The monitor-powered post-run GPU limit was 20 W, not a measured inference-time
+limit; the powered generation samples reported a 105 W limit. Removing the
+schema in a separate monitor-powered call did not improve throughput, but
+that single comparison does not establish zero schema overhead.
+
+This is one ordered comparison, not a repeatability benchmark. GPU readings
+are whole-device and the new estimated generation window contains only four
+samples, at a different cadence from the baseline. Both outputs stopped at
+the 128-token cap: **5.012 s is not a full assessor latency result**, and no
+quality or integration gate changed.
+
+The subsequent five-case development pilot used the normal 1024-token cap
+and completed all outputs without truncation. Mean decode time was 3.081 s,
+mean complete assessment time was 3.711 s (previously 210.738 s), and the
+whole run took 20.645 s. Status agreement remained 3/5, with 0/4
+false-sufficient decisions and 6/6 gold quotes retrieved. The same expiry
+and ambiguous-access classifications were wrong: adequate power restored
+usable iteration speed, not assessor accuracy.

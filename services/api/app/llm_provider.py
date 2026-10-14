@@ -1,6 +1,7 @@
 import json
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Protocol
 
 
@@ -49,6 +50,23 @@ class OllamaProviderError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class OllamaGenerationMetrics:
+    total_duration_ns: int | None
+    load_duration_ns: int | None
+    prompt_eval_count: int | None
+    prompt_eval_duration_ns: int | None
+    eval_count: int | None
+    eval_duration_ns: int | None
+    done_reason: str | None
+
+
+@dataclass(frozen=True)
+class OllamaGenerationResult:
+    text: str
+    metrics: OllamaGenerationMetrics
+
+
 class OllamaLLMProvider:
     def __init__(self, *, base_url: str, timeout_seconds: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
@@ -84,6 +102,21 @@ class OllamaLLMProvider:
         user_prompt: str,
         response_schema: dict[str, object],
     ) -> str:
+        return self.generate_structured_with_metrics(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_schema=response_schema,
+        ).text
+
+    def generate_structured_with_metrics(
+        self,
+        *,
+        model_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        response_schema: dict[str, object],
+    ) -> OllamaGenerationResult:
         payload: dict[str, object] = {
             "model": model_name,
             "system": system_prompt,
@@ -96,9 +129,15 @@ class OllamaLLMProvider:
                 "num_predict": 1024,
             },
         }
-        return self._generate_text(payload)
+        return self._generate_text_with_metrics(payload)
 
     def _generate_text(self, payload: dict[str, object]) -> str:
+        return self._generate_text_with_metrics(payload).text
+
+    def _generate_text_with_metrics(
+        self,
+        payload: dict[str, object],
+    ) -> OllamaGenerationResult:
         req = urllib.request.Request(
             f"{self._base_url}/api/generate",
             data=json.dumps(payload).encode("utf-8"),
@@ -162,4 +201,36 @@ class OllamaLLMProvider:
                     "the model likely exhausted output budget before final answer."
                 )
             raise OllamaProviderError("Ollama returned empty response text.")
-        return text
+
+        done_reason = body.get("done_reason")
+        if done_reason is not None and not isinstance(done_reason, str):
+            raise OllamaProviderError(
+                "Ollama response field 'done_reason' must be a string."
+            )
+        metrics = OllamaGenerationMetrics(
+            total_duration_ns=_optional_nonnegative_integer(body, "total_duration"),
+            load_duration_ns=_optional_nonnegative_integer(body, "load_duration"),
+            prompt_eval_count=_optional_nonnegative_integer(body, "prompt_eval_count"),
+            prompt_eval_duration_ns=_optional_nonnegative_integer(
+                body,
+                "prompt_eval_duration",
+            ),
+            eval_count=_optional_nonnegative_integer(body, "eval_count"),
+            eval_duration_ns=_optional_nonnegative_integer(body, "eval_duration"),
+            done_reason=done_reason,
+        )
+        return OllamaGenerationResult(text=text, metrics=metrics)
+
+
+def _optional_nonnegative_integer(
+    body: dict[str, object],
+    field_name: str,
+) -> int | None:
+    value = body.get(field_name)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise OllamaProviderError(
+            f"Ollama response field {field_name!r} must be a non-negative integer."
+        )
+    return value
