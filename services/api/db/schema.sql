@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS support_draft_events (
     citation_source_ids JSONB NOT NULL,
     citation_contract_passed BOOLEAN NOT NULL,
     review_triggers JSONB NOT NULL,
+    evidence_assessment JSONB,
+    generation_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

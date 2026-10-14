@@ -25,6 +25,20 @@ class Settings(BaseSettings):
         default="qwen3:4b",
         alias="EVIDENCE_ASSESSOR_MODEL",
     )
+    support_draft_generation_enabled: bool = Field(
+        default=False,
+        alias="SUPPORT_DRAFT_GENERATION_ENABLED",
+    )
+    support_draft_generator_model: str = Field(
+        default="qwen3:4b",
+        alias="SUPPORT_DRAFT_GENERATOR_MODEL",
+    )
+    support_draft_generation_max_tokens: int = Field(
+        default=256,
+        ge=64,
+        le=1024,
+        alias="SUPPORT_DRAFT_GENERATION_MAX_TOKENS",
+    )
     main_model: str = Field(default="qwen3:14b", alias="MAIN_MODEL")
     escalation_model: str = Field(default="qwen3:20b", alias="ESCALATION_MODEL")
 

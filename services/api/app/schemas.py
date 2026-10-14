@@ -13,6 +13,50 @@ ReviewLifecycleStatus = Literal[
 DeliverableReviewStatus = Literal["not_required", "approved", "edited"]
 DraftMode = Literal["generated", "preview_only"]
 
+
+class DraftModelCallMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total_duration_ns: int | None = Field(default=None, ge=0)
+    load_duration_ns: int | None = Field(default=None, ge=0)
+    prompt_eval_count: int | None = Field(default=None, ge=0)
+    prompt_eval_duration_ns: int | None = Field(default=None, ge=0)
+    eval_count: int | None = Field(default=None, ge=0)
+    eval_duration_ns: int | None = Field(default=None, ge=0)
+    done_reason: str | None = None
+    done: bool | None = None
+
+
+class SupportDraftGenerationMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Literal[
+        "generated",
+        "no_retrieved_evidence",
+        "clarification_needed",
+        "insufficient_evidence",
+        "no_relevant_evidence",
+        "conflicting_evidence",
+    ]
+    retrieved_chunk_count: int = Field(ge=0)
+    retrieval_top_k: int = Field(ge=1, le=10)
+    assessor_model: str | None = None
+    assessor_system_prompt_sha256: str | None = None
+    assessor_user_prompt_sha256: str | None = None
+    assessor_schema_sha256: str | None = None
+    assessor_elapsed_seconds: float | None = Field(default=None, ge=0)
+    assessor_metrics: DraftModelCallMetrics | None = None
+    generator_model: str | None = None
+    generator_system_prompt_sha256: str | None = None
+    generator_user_prompt_sha256: str | None = None
+    generator_schema_sha256: str | None = None
+    generator_elapsed_seconds: float | None = Field(default=None, ge=0)
+    generator_metrics: DraftModelCallMetrics | None = None
+    generator_max_output_tokens: int | None = Field(default=None, ge=1)
+    generation_completion_verified: bool | None = None
+    total_elapsed_seconds: float = Field(ge=0)
+
+
 class Citation(BaseModel):
     source_id: str
     title: str
@@ -51,6 +95,8 @@ class SupportDraftResponse(BaseModel):
     citation_contract_passed: bool
     review_triggers: list[str]
     draft_mode: DraftMode = "generated"
+    evidence_assessment: dict[str, object] | None = None
+    generation_metadata: SupportDraftGenerationMetadata | None = None
 
 class RetrievalQueryRequest(BaseModel):
     question: str = Field(min_length=5, max_length=3000)

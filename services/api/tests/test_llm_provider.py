@@ -63,6 +63,7 @@ class OllamaLLMProviderTests(unittest.TestCase):
             "eval_count": 35,
             "eval_duration": 7_000_000_000,
             "done_reason": "stop",
+            "done": True,
         }
         with patch(
             "urllib.request.urlopen",
@@ -83,6 +84,60 @@ class OllamaLLMProviderTests(unittest.TestCase):
         self.assertEqual(result.metrics.eval_count, 35)
         self.assertEqual(result.metrics.eval_duration_ns, 7_000_000_000)
         self.assertEqual(result.metrics.done_reason, "stop")
+        self.assertTrue(result.metrics.done)
+
+    def test_generate_structured_with_metrics_honors_output_budget(self):
+        response = {
+            "response": '{"draft": "Only workspace owners can download invoices."}',
+            "eval_count": 16,
+            "done_reason": "stop",
+            "done": True,
+        }
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse(response),
+        ) as urlopen:
+            result = self.provider.generate_structured_with_metrics(
+                model_name="qwen3:4b",
+                system_prompt="Write from evidence.",
+                user_prompt="Question and validated facts.",
+                response_schema={
+                    "type": "object",
+                    "properties": {"draft": {"type": "string"}},
+                    "required": ["draft"],
+                    "additionalProperties": False,
+                },
+                max_output_tokens=256,
+            )
+
+        self.assertEqual(result.text, response["response"])
+        request_payload = json.loads(urlopen.call_args.args[0].data.decode("utf-8"))
+        self.assertEqual(request_payload["model"], "qwen3:4b")
+        self.assertEqual(request_payload["options"]["temperature"], 0)
+        self.assertEqual(request_payload["options"]["num_predict"], 256)
+        self.assertFalse(request_payload["stream"])
+        self.assertFalse(request_payload["think"])
+        self.assertTrue(result.metrics.done)
+        self.assertEqual(result.metrics.done_reason, "stop")
+
+    def test_generate_structured_with_metrics_rejects_invalid_done_flag(self):
+        with patch(
+            "urllib.request.urlopen",
+            return_value=FakeResponse(
+                {"response": '{"draft": "Draft"}', "done": "true"}
+            ),
+        ):
+            with self.assertRaisesRegex(
+                OllamaProviderError,
+                "done.*boolean",
+            ):
+                self.provider.generate_structured_with_metrics(
+                    model_name="qwen3:4b",
+                    system_prompt="Write from evidence.",
+                    user_prompt="Question and validated facts.",
+                    response_schema={"type": "object"},
+                    max_output_tokens=256,
+                )
 
     def test_generate_structured_with_metrics_rejects_invalid_counts(self):
         with patch(

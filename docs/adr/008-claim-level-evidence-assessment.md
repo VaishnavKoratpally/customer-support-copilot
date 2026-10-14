@@ -120,6 +120,16 @@ recovery worker; a reserved attempt may remain running after interruption.
 Prompt/schema hashes and the configured model tag distinguish attempts but
 are not immutable model-digest provenance.
 
+### Approved Week 4 design qualification
+
+[ADR-012](./012-scoped-faq-pilot-and-automation-eligibility.md) approves a future
+review-first generated FAQ pilot, with scoped automation only after independent
+semantic evaluation of final replies, tested guards, and explicit enablement.
+For that pilot, development 5/5 assessor-status agreement is not the release
+criterion. Sufficiency and valid quotes remain fallible inputs, not permission.
+This design qualification does not enable generation, broaden source access,
+or alter the current Stage A preview/review/delivery boundaries.
+
 ## Options Considered
 
 1. Use a cosine-distance cutoff as the sufficiency decision. Rejected because

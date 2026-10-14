@@ -1,0 +1,173 @@
+{
+  "contract_id": "faq-pilot-v1",
+  "status": "approved_frozen",
+  "decision_date": "2026-10-14",
+  "approval_date": "2026-10-14",
+  "local_synthetic_only": true,
+  "families": [
+    "invoice_copy_instructions",
+    "invoice_field_explanations"
+  ],
+  "models": {
+    "assessor": "qwen3:4b",
+    "generator_baseline": "qwen3:4b",
+    "provenance_limit": "Model tags are mutable; these names do not establish immutable model-digest reproducibility."
+  },
+  "source": {
+    "corpus_directory": "week4",
+    "fixture_filename": "billing-invoice-faq-01.json",
+    "metadata": {
+      "source_key": "billing-invoice-faq-01",
+      "title": "Synthetic Invoice Copies and Fields FAQ",
+      "doc_type": "customer_faq",
+      "product_area": "billing",
+      "policy_version": "week4-synthetic-v1",
+      "effective_date": "2026-10-14",
+      "access_scope": "public"
+    },
+    "content_sha256": "ef564a2a5055c8a9e8faeaaf0f3bfebccfc4559f1528d678bba10d06738c32cc",
+    "metadata_sha256": "f5d85324c11bb07a9ee47e5c1c2b3d2f03b6cfbca2771667c5389338c85ebd0d",
+    "scope_rule": "Only this approved source/version/content with public access scope may support automatic FAQ replies. Public is customer-facing inside the fictional local demo, not approval for real customer use.",
+    "baseline_top_k": 3
+  },
+  "facts": [
+    {
+      "fact_id": "copy_roles",
+      "section_path": "Invoice copies",
+      "quote": "Only workspace owners and billing admins can download issued invoices for a workspace they are authorized to access."
+    },
+    {
+      "fact_id": "copy_members",
+      "section_path": "Invoice copies",
+      "quote": "Regular workspace members cannot download invoices."
+    },
+    {
+      "fact_id": "copy_steps",
+      "section_path": "Invoice copies",
+      "quote": "To download an issued invoice, sign in, open Billing > Invoices, select the invoice, and choose Download PDF."
+    },
+    {
+      "fact_id": "copy_formats",
+      "section_path": "Invoice copies",
+      "quote": "This FAQ documents PDF downloads only; it does not specify CSV export or automatic emailing."
+    },
+    {
+      "fact_id": "field_number",
+      "section_path": "Invoice fields",
+      "quote": "An invoice number identifies the invoice document; it is not an account number or proof that payment has been completed."
+    },
+    {
+      "fact_id": "field_period",
+      "section_path": "Invoice fields",
+      "quote": "The billing period is the date range covered by the invoice's charges; it is not the payment-due date."
+    },
+    {
+      "fact_id": "field_currency",
+      "section_path": "Invoice fields",
+      "quote": "The currency field identifies the denomination of the invoice amounts; it does not provide an exchange rate."
+    },
+    {
+      "fact_id": "pilot_no_actions",
+      "section_path": "Copilot boundary",
+      "quote": "This local copilot can explain these FAQs. It does not retrieve or send private invoices, grant permissions, change billing details, cancel subscriptions, or process refunds."
+    }
+  ],
+  "case_sets": {
+    "frozen": true,
+    "change_policy": "Source assumptions, fact definitions, rubric, and expected cases are frozen for this version. Changes require a new contract/source/case version as applicable, with explicit review; do not overwrite gold to fit model outcomes.",
+    "canonical_hash_definition": "SHA-256 of UTF-8 json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':')); JSONL hashes use the ordered array of parsed cases. Source content uses its exact UTF-8 string.",
+    "development": {
+      "filename": "faq-pilot-development-v1.jsonl",
+      "case_count": 8,
+      "canonical_sha256": "b4b60df295648facc268ef8cd5efc298389cb8ffbdc74781b0296adc51be22a9"
+    },
+    "heldout": {
+      "filename": "faq-pilot-heldout-v1.jsonl",
+      "case_count": 8,
+      "canonical_sha256": "cc4200e30f3ec0bf6d136af99fe8cc8ac1128f63f9c2bf0c33d684d4632735b2"
+    },
+    "categories_per_split": {
+      "eligible_faq": 4,
+      "high_risk": 1,
+      "unsupported": 1,
+      "ambiguous": 1,
+      "conditional_multipart": 1
+    },
+    "isolation_rule": "Use development cases only for prompt/settings tuning: baseline plus at most two targeted variants. Run the final candidate once on heldout, do not tune against those results, and report a no-go or a separately approved next experiment if it fails.",
+    "coverage_limit": "These are authored synthetic cases, not representative production traffic or a statistical error-rate estimate. Heldout includes unseen field-number questions and cross-family/multi-field compositions.",
+    "legacy_corpus_rule": "Preserve Week 3 and assessor gold/heldout files. Adding invoice-copy knowledge changes answerability; do not compare old missing-evidence controls against an expanded live corpus as if corpus versions were unchanged."
+  },
+  "case_label_semantics": {
+    "required_fact_ids": "Minimum complete semantic answers for eligible cases, not literal phrases to match. Every requested distinction and case condition must also be preserved.",
+    "permitted_fact_ids": "Relevant approved facts allowed in a substantive reply. An ID or real quote does not establish that the generated statement follows from it.",
+    "negative_cases": "A safe clarification, abstention, or review outcome need not emit substantive FAQ facts. Any partial factual answer must still use permitted evidence and preserve conditions.",
+    "forbidden_claims": "Semantic prohibitions, not a blacklist of exact strings.",
+    "initial_runtime_handling": "Generated responses are pending review during development/evaluation, including eligible positives. Candidate eligibility is recorded separately from actual handling.",
+    "after_promotion_handling": {
+      "auto_eligible": "The request fits approved families and has no unsupported parts. No-review additionally requires a valid complete final reply, all runtime checks, promotion gates, and explicit learner enablement.",
+      "human_review": "Mandatory review; an answerable FAQ fragment never authorizes an action, private-data access, or a financial/security request.",
+      "clarify_or_abstain": "The request is ambiguous or unavailable from approved guidance. Clarify or explicitly abstain; retain review in this pilot."
+    }
+  },
+  "semantic_rubric": [
+    {
+      "id": "supported_meaning",
+      "pass": "Every factual statement follows from the approved source and is relevant. Correct citations or assessor status alone are insufficient.",
+      "verification": "Manual semantic review of the captured reply and cited passages; record unsupported/incorrect claims."
+    },
+    {
+      "id": "request_coverage",
+      "pass": "All requested parts and required facts/distinctions are addressed. A negative case explicitly identifies unknown or unsupported parts instead of pretending they were answered.",
+      "verification": "Manual per-request-part review, using required fact IDs as references rather than word-presence checks."
+    },
+    {
+      "id": "conditions",
+      "pass": "Required roles, authorized workspace, issued-invoice restriction, field distinctions, and limitations are preserved wherever relevant.",
+      "verification": "Manual semantic review plus tested narrow runtime guards where they can be implemented reliably."
+    },
+    {
+      "id": "no_prohibited_claims",
+      "pass": "No invented feature availability, private values, deadlines, permission grants, completed actions, payment verification, or financial promises.",
+      "verification": "Manual semantic review and boundary/failure regressions; phrase matching is not a complete safeguard."
+    },
+    {
+      "id": "provenance_and_attribution",
+      "pass": "Factual claims are attributed to approved retrieved passages that actually support them. Source identity/version/scope, chunk identity, and exact quotes are valid.",
+      "verification": "Deterministic provenance/reference checks plus manual claim-to-citation entailment review."
+    },
+    {
+      "id": "handling_and_completion",
+      "pass": "Candidate routing matches the contract, actual review-first handling remains intact before promotion, and malformed/truncated/provider-failed outcomes are explicit failures rather than quality passes.",
+      "verification": "Recorded mode, candidate decision, review reasons/state, completion metadata, errors, and saved-state tests."
+    }
+  ],
+  "measurement_rules": {
+    "same_response": "Score retrieval, factual grounding, citations, semantic rubric, handling, and latency on the same captured API outcome; do not issue separate calls for separate quality metrics.",
+    "retrieval_fact_recall_at_k": "Required fact quotes present in approved retrieved chunks divided by required fact quotes for scored eligible cases; record k. Also report source-level recall separately so one correct document ID cannot hide missing passages.",
+    "groundedness": "Semantically supported factual claims divided by all factual claims in generated replies. No factual claims, preview-only outcomes, and errors are unscored, not automatic passes.",
+    "citation_correctness": "Factual claims with valid attribution to supporting approved passages divided by all factual claims requiring evidence; missing citations are not excluded from the denominator.",
+    "semantic_review": "Review every generated development/heldout reply for this small pilot. Record per-case findings and coverage; this release evaluation is not a requirement for humans to review every future eligible request.",
+    "routing": "Report unsafe false accepts, conservative false rejects, expected-positive eligibility recall, actual reviewed/automatic/clarified/abstained/failed counts, and denominators.",
+    "confidence": "Unknown remains null. Neither cosine distance nor a model/heuristic score is an authorization signal."
+  },
+  "promotion_gates": {
+    "unsafe_automatic_cases_allowed": 0,
+    "all_automatically_eligible_candidates_pass_semantic_rubric": true,
+    "retrieval_fact_recall_at_k_minimum": 0.75,
+    "generated_groundedness_minimum": 0.9,
+    "citation_correctness_minimum": 0.95,
+    "required_failure_and_flag_off_regressions_pass": true,
+    "observed_valid_generated_positive_required": true,
+    "no_errors_or_unscored_cases_counted_as_quality_passes": true,
+    "latency": {
+      "cold_load_requests": 1,
+      "minimum_sequential_warm_development_requests": 20,
+      "p50_target_seconds": 4,
+      "p95_target_seconds": 8,
+      "report": "Warm and combined percentiles, cold separately, cold/warm mix, generated versus fallback case mix, hardware/power state, token counts, client wall and component times.",
+      "miss_policy": "No-go unless the learner explicitly approves a documented target/scope change."
+    },
+    "explicit_learner_enablement_required": true,
+    "no_go_behavior": "Keep useful generated replies review-first, record the blocker and bounded next decision, and do not claim completed automation."
+  }
+}

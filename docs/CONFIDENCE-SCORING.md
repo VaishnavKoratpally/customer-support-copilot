@@ -5,6 +5,11 @@ responses return `NULL` for both confidence fields. Raw pgvector cosine
 distance is not a confidence score, and this formula must not be used to
 authorize generated answers until its inputs are calibrated and evaluated.
 
+The approved [Week 4 FAQ policy](./adr/012-scoped-faq-pilot-and-automation-eligibility.md)
+keeps confidence unknown and uses explicit, scoped eligibility rather than
+this heuristic. Its implementation and promotion are pending; legacy numeric
+thresholds are not lowered, and null confidence alone is not permission.
+
 ## Objective
 Define a deterministic confidence score for support drafts that is easy to audit and tune.
 

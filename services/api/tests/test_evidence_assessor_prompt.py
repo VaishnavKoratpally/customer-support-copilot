@@ -31,6 +31,14 @@ class EvidenceAssessorPromptTests(unittest.TestCase):
             "Leave supporting_facts empty",
             prompt,
         )
+        self.assertIn(
+            "be one contiguous substring copied verbatim",
+            prompt,
+        )
+        self.assertIn(
+            "use separate evidence entries for separate source spans",
+            prompt,
+        )
 
 
 if __name__ == "__main__":

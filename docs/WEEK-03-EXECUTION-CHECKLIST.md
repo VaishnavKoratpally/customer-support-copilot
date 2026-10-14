@@ -1,5 +1,13 @@
 # Week 3 Execution Checklist: Evidence-Grounded RAG
 
+## Checkpoint status (2026-10-14)
+
+The retrieval-preview and advisory-reviewer slice is checkpointed in `5a50e1a`.
+Week 3 is **not fully complete**: generated responses, paired end-to-end quality
+measurement, and the complete Day 5 experiment were not delivered. Their
+destinations are recorded below. Stop extending this week through more assessor
+tuning; the active plan is [Week 4](./WEEK-04-EXECUTION-CHECKLIST.md).
+
 ## Objective
 
 Wire local pgvector retrieval into the live `POST /v1/support/draft` path in preview-only mode. Prove retrieval and evidence handling before enabling generated answers, adding agent frameworks, or broadening the product surface.
@@ -274,22 +282,39 @@ Exit evidence: report results against existing targets (retrieval recall >= 0.75
 
 Learning focus: confidence calibration, review capacity, and controlled performance experiments.
 
+**Triage: carry the useful tasks into Week 4; defer the standalone model-size
+comparison.** Current preview mode forces 100% review, so benchmarking its
+notice cannot establish generated-response quality or the future review rate.
+Existing hardware/calibration results remain valid historical evidence, not
+completion of this end-to-end milestone.
+
 - [ ] Extend evaluation results to include per-case intent, risk level, answer confidence, review triggers, citation-contract status, and model used; avoid putting full drafts in operational metrics.
 - [ ] Analyze why Week 2 escalated 20/20 drafts. Do not tune thresholds until the trigger distribution and representative workload are understood.
 - [ ] Check whether `num_predict=64` limits answer completeness before treating it as a production setting.
 - [ ] Run one controlled model comparison on the same questions and retrieved evidence. Hold prompt, thinking mode, token budget, and hardware constant; change only model size.
 - [ ] Record sample count, warm/cold model state, p50/p95, quality results, and the 8-second p95 target. Treat this as a local experiment, not a load test.
 
-Exit evidence: review behavior has a per-case explanation, and the model comparison reports both latency and quality without claiming a result from a single changed variable.
+| Original Day 5 task | Disposition | Traceable destination |
+|---|---|---|
+| Per-case context and review telemetry | Still needed; evaluate the actual final response once per case. | [W4-04a/b](./WEEK-04-EXECUTION-CHECKLIST.md#day-4-end-to-end-evaluation) |
+| Explain 20/20 review | Carry forward. Historical individual triggers were not saved; distinguish this from the current intentional preview-only rule. Do not invent a retrospective breakdown. | [W4-01 baseline](./WEEK-04-EXECUTION-CHECKLIST.md#verified-starting-point), [W4-03/04 routing report](./WEEK-04-EXECUTION-CHECKLIST.md#day-3-final-response-checks-and-risk-routing) |
+| Check 64-token answer completeness | Needed when real generation is implemented, not another preview benchmark. | [W4-02c](./WEEK-04-EXECUTION-CHECKLIST.md#day-2-grounded-response-generation) |
+| Controlled model-size comparison | Deferred, not marked complete. The prior bounded calibration comparison is not a full-system benchmark. | [PERF-01](./WEEK-04-EXECUTION-CHECKLIST.md#deferred-work-and-revisit-triggers) |
+| Warm/cold latency and quality | Carry forward to the complete generated-response path; report the 8-second p95 gap explicitly. | [W4-05](./WEEK-04-EXECUTION-CHECKLIST.md#day-5-bounded-automation-rollout-and-timing) |
+
+Original exit evidence remains open: review behavior has a per-case explanation,
+and a controlled model comparison reports latency and quality. Week 4 first
+prioritizes real responses and routing; PERF-01 has an explicit revisit trigger.
+The unchecked Day 1/2 reading items remain learner prerequisites under W4-01.
 
 ## Week 3 exit criteria
 
-- [ ] Generated `/v1/support/draft` answers use real pgvector evidence and validated sufficiency decisions; citations map to stored chunks. `StubRetriever` is not on the user-facing runtime path.
-- [ ] The fixed evaluation set covers answerable and unsupported questions.
-- [ ] Retrieval, citation, groundedness, and review behavior are reported as distinct measurements.
-- [ ] Missing evidence follows a safe, tested path.
-- [ ] A controlled latency/quality experiment is recorded; any remaining SLO gap is explicit.
-- [ ] No claim of production-scale readiness is made without representative workload, capacity, security, and operational evidence.
+- [ ] Generated `/v1/support/draft` answers use real pgvector evidence and validated sufficiency decisions; citations map to stored chunks. `StubRetriever` is not on the user-facing runtime path. Generated answers carry to [W4-02/03](./WEEK-04-EXECUTION-CHECKLIST.md#day-2-grounded-response-generation); the no-stub preview path is already verified.
+- [x] The fixed evaluation set covers answerable and unsupported questions: [12-case contract](./evals/rag-week3-v1.jsonl) and [atomic gold](./evals/evidence-assessor-gold-v1.jsonl). This does not validate generation or provide positive no-review cases.
+- [ ] Retrieval, citation, groundedness, and review behavior are reported as distinct measurements on the same generated response. Carry to [W4-04](./WEEK-04-EXECUTION-CHECKLIST.md#day-4-end-to-end-evaluation); previous lexical/stub results are not generated-RAG evidence.
+- [x] Missing evidence follows a safe, tested **preview-only** path. The generated-path failure controls remain [W4-02/03](./WEEK-04-EXECUTION-CHECKLIST.md#day-2-grounded-response-generation).
+- [ ] A controlled end-to-end latency/quality experiment is recorded; any remaining SLO gap is explicit. Carry to [W4-05](./WEEK-04-EXECUTION-CHECKLIST.md#day-5-bounded-automation-rollout-and-timing); model-size comparison remains PERF-01.
+- [x] No claim of production-scale readiness is made without representative workload, capacity, security, and operational evidence. Current evidence is local, synthetic, and small-sample only.
 
 ## Focused references
 

@@ -13,10 +13,12 @@ This is also a deep-learning project in AI engineering and system design. See [L
 
 ## Current milestone
 
-Local retrieval-preview and advisory reviewer-assistance milestone:
+Local retrieval-preview/advisory baseline plus an opt-in, review-first FAQ
+generation pilot:
 
 - local runtime stack (Postgres + Redis + Ollama + API) via Docker Compose
-- real pgvector evidence previews without generated customer replies or confidence claims
+- real pgvector evidence previews; preview-only remains the default
+- opt-in FAQ replies generated from validated evidence, persisted for human review with null confidence
 - persisted human-review lifecycle and locally simulated delivery gates
 - opt-in, recorded evidence-assessor proposals and separate reviewer feedback
 - architecture docs and ADR template
@@ -76,10 +78,11 @@ Get-Content .\services\api\db\migrations\002_persisted_support_review_lifecycle.
 Get-Content .\services\api\db\migrations\003_simulated_support_delivery.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\004_preview_only_drafts.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\005_reviewer_evidence_assistance.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+Get-Content .\services\api\db\migrations\006_support_draft_generation_metadata.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 ```
 
-If migrations `001` through `003` were already applied, run `004` and `005`.
-If the database is already through `004`, run only `005`.
+If migrations `001` through `003` were already applied, run `004`, `005`, and
+`006`. If the database is already through `005`, run only `006`.
 
 4) Pull recommended models inside Ollama container:
 
@@ -110,11 +113,30 @@ curl -X POST http://localhost:8000/v1/support/draft `
   -d "{\"question\":\"I was charged twice for my plan. Can you help?\"}"
 ```
 
-The current draft endpoint is intentionally `preview_only`: it uses real
-pgvector evidence but does not generate a customer answer or claim confidence.
-Retrieved citations include raw cosine distance, which is not a confidence
-score. A preview must be human-edited before a simulated-delivery receipt can
-be created; approving the preview notice alone is not allowed.
+The draft endpoint defaults to `preview_only`: it uses real pgvector evidence
+but does not generate a customer answer or claim confidence. Retrieved
+citations include raw cosine distance, which is not a confidence score. A
+preview must be human-edited before a simulated-delivery receipt can be
+created; approving the preview notice alone is not allowed.
+
+The local generated FAQ pilot is separately feature-gated and remains
+**review-first**. After indexing the approved Week 4 FAQ, set
+`SUPPORT_DRAFT_GENERATION_ENABLED=true` in `.env` and rebuild/restart the API.
+For a request with retrieved evidence, the API first makes one structured
+Qwen3:4b evidence-assessment call, validates chunk IDs and exact quotes, then
+makes a second Qwen3:4b call from only the assessed answers/facts. The second
+call must return a schema-validated JSON object containing only `draft`; both
+calls are bounded, and incomplete or invalid output fails closed. The response
+stays `pending_review`; confidence remains null; this does not enable no-review
+automation or real sending. Provider errors, invalid evidence, malformed
+structured output, and truncated output return explicit errors instead of a
+successful-looking fallback. With the flag unset/false, preview-only remains
+the default.
+
+The generated-path evidence assessment, final response, citations, prompt and
+schema fingerprints, model tags, timing/token metrics, and completion state
+are stored with the support-draft trace. This metadata is for local evaluation;
+it is not a correctness certificate or immutable model provenance.
 
 For a generated-mode draft, when the draft response says `not_required`, or the
 review response says `approved` or `edited`, use its trace ID to create a local
@@ -226,21 +248,30 @@ docker stop YOUR_CONTAINER_ID
 ```
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build api
+docker compose up -d postgres redis ollama
+
+docker compose -f docker-compose.yml -f docker-compose.debug.yml run `
+  --build --rm --no-deps --service-ports `
+  -e SUPPORT_DRAFT_GENERATION_ENABLED=true api
 ```
 
 The debug profile installs `debugpy` only in this development image, mounts
 `services/api/app` from the workspace, and pauses API startup until VS Code
-attaches. In **Run and Debug**, select **Attach to Support API (Docker)** and
-press F5. Set breakpoints in `services/api/app/main.py` inside
-`draft_support_reply`, and in `services/api/app/orchestrator.py` inside
-`PreviewOnlyDraftOrchestrator.draft_reply`.
+attaches. The command enables generation only for this temporary container;
+it does not change `.env`. Set breakpoints, then in **Run and Debug** select
+**Attach to Support API (Docker)** and press F5. Useful locations are
+`services/api/app/main.py` in `create_support_draft_orchestrator` and
+`draft_support_reply`, `services/api/app/orchestrator.py` in
+`GeneratedDraftOrchestrator.draft_reply`, and
+`services/api/app/evidence_assessment.py` in
+`validate_and_aggregate_assessment`.
 
-In a second terminal, send a request:
+The approved Week 4 FAQ must already be indexed. In a second terminal, send
+the same development request used in the smoke test:
 
 ```powershell
 $body = @{
-  question = 'I forgot my password and cannot log in. How do I reset it?'
+  question = 'How do I download a PDF copy of an issued invoice?'
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -250,13 +281,17 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-Use F10 to step over, F11 to step into, and Shift+F11 to step out. In the
-debug console, inspect `payload.question` in the route, then `retrieval.hits`,
-`retrieval.hits[0].text`, and `retrieval.hits[0].cosine_distance` in the
-orchestrator. The cosine distance is raw retrieval metadata, not confidence.
-The current preview-only path does not call an LLM.
+Use F10 to step over, F11 to step into, and Shift+F11 to step out. At the
+route, inspect `payload.question`; in the orchestrator, inspect
+`retrieval.hits`, `decision.status`, and then `generator_result.metrics` and
+`draft`. The Ollama model call is an HTTP request to another process, so step
+over it and inspect its returned text/metrics rather than trying to step into
+the model. At persistence, confirm `result.review_status` is `pending_review`.
+Cosine distance is raw retrieval metadata, not confidence.
 
-Stop the debug Compose process with Ctrl+C. To return to the normal API image:
+Stop the debug Compose process with Ctrl+C. The temporary API is removed and
+the one-off flag override is gone. The standard API reads its flag from `.env`;
+to start it again:
 
 ```powershell
 docker compose up --build -d api
@@ -266,7 +301,20 @@ Week 3 ingestion uses `qwen3-embedding:0.6b` with 1024 dimensions. `POST /v1/ing
 
 ## Next implementation steps
 
-Start with [WEEK-01-EXECUTION-CHECKLIST.md](docs/WEEK-01-EXECUTION-CHECKLIST.md), then progress through ADR-backed decisions and eval-driven iterations.
+**Active execution plan:** [Week 4: Grounded Responses and Bounded Automation](docs/WEEK-04-EXECUTION-CHECKLIST.md).
+Days 1-2 are complete: invoice-copy instructions, invoice-field explanations,
+synthetic FAQ facts, Qwen3:4b, the [scoped routing policy](docs/adr/012-scoped-faq-pilot-and-automation-eligibility.md),
+and the gated review-first generation path are established. The
+[pilot contract/rubric](docs/evals/faq-pilot-contract-v1.json) and 8
+development + 8 held-out cases are approved and frozen. One development smoke
+request completed and was persisted for review; held-out evaluation and
+automation eligibility remain pending. Next is Day 3: final-response checks
+and risk routing.
+
+[Week 3](docs/WEEK-03-EXECUTION-CHECKLIST.md) remains the retrieval/advisory
+checkpoint, with unfinished goals and Day 5 carry-over explicitly mapped rather
+than marked complete. Earlier context is in [Week 1](docs/WEEK-01-EXECUTION-CHECKLIST.md)
+and [Week 2](docs/WEEK-02-EXECUTION-CHECKLIST.md).
 
 Also review:
 - [DOMAIN-SCOPE.md](docs/DOMAIN-SCOPE.md)

@@ -79,6 +79,14 @@ class PostgresSupportRepository:
             citation.model_dump(mode="json", exclude_none=True)
             for citation in draft_response.citations
         ]
+        generation_metadata_payload = (
+            draft_response.generation_metadata.model_dump(
+                mode="json",
+                exclude_none=True,
+            )
+            if draft_response.generation_metadata is not None
+            else None
+        )
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
@@ -101,10 +109,13 @@ class PostgresSupportRepository:
                             escalation_reason,
                             citation_source_ids,
                             citation_contract_passed,
-                            review_triggers
+                            review_triggers,
+                            evidence_assessment,
+                            generation_metadata
                         )
                         VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s
                         )
                         """,
                         (
@@ -125,6 +136,16 @@ class PostgresSupportRepository:
                             Jsonb(draft_response.citation_source_ids),
                             draft_response.citation_contract_passed,
                             Jsonb(draft_response.review_triggers),
+                            (
+                                Jsonb(draft_response.evidence_assessment)
+                                if draft_response.evidence_assessment is not None
+                                else None
+                            ),
+                            (
+                                Jsonb(generation_metadata_payload)
+                                if generation_metadata_payload is not None
+                                else None
+                            ),
                         ),
                     )
                 conn.commit()

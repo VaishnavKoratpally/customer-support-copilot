@@ -18,6 +18,19 @@ class LLMProvider(Protocol):
         ...
 
 
+class DraftGenerationProvider(Protocol):
+    def generate_structured_with_metrics(
+        self,
+        *,
+        model_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        response_schema: dict[str, object],
+        max_output_tokens: int = 1024,
+    ) -> "OllamaGenerationResult":
+        ...
+
+
 class StubLLMProvider:
     """
     Placeholder provider for deterministic behavior during offline or fallback modes.
@@ -59,6 +72,7 @@ class OllamaGenerationMetrics:
     eval_count: int | None
     eval_duration_ns: int | None
     done_reason: str | None
+    done: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -116,7 +130,10 @@ class OllamaLLMProvider:
         system_prompt: str,
         user_prompt: str,
         response_schema: dict[str, object],
+        max_output_tokens: int = 1024,
     ) -> OllamaGenerationResult:
+        if max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be positive.")
         payload: dict[str, object] = {
             "model": model_name,
             "system": system_prompt,
@@ -126,7 +143,7 @@ class OllamaLLMProvider:
             "format": response_schema,
             "options": {
                 "temperature": 0,
-                "num_predict": 1024,
+                "num_predict": max_output_tokens,
             },
         }
         return self._generate_text_with_metrics(payload)
@@ -207,6 +224,11 @@ class OllamaLLMProvider:
             raise OllamaProviderError(
                 "Ollama response field 'done_reason' must be a string."
             )
+        done = body.get("done")
+        if done is not None and not isinstance(done, bool):
+            raise OllamaProviderError(
+                "Ollama response field 'done' must be a boolean."
+            )
         metrics = OllamaGenerationMetrics(
             total_duration_ns=_optional_nonnegative_integer(body, "total_duration"),
             load_duration_ns=_optional_nonnegative_integer(body, "load_duration"),
@@ -218,6 +240,7 @@ class OllamaLLMProvider:
             eval_count=_optional_nonnegative_integer(body, "eval_count"),
             eval_duration_ns=_optional_nonnegative_integer(body, "eval_duration"),
             done_reason=done_reason,
+            done=done,
         )
         return OllamaGenerationResult(text=text, metrics=metrics)
 

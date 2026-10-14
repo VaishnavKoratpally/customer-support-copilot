@@ -45,3 +45,13 @@ The preview flow adds a persisted `draft_mode` and allows confidence columns to
 be null. Existing rows default to `generated`; the migration preserves their
 current behavior. Generated answers may be enabled only after the fixed
 evidence-assessment set meets ADR-008's no-false-sufficient acceptance gate.
+
+## Week 4 qualification (2026-10-14)
+
+[ADR-012](./012-scoped-faq-pilot-and-automation-eligibility.md) replaces the
+standalone-assessor release criterion **only for the approved local FAQ pilot**
+with scoped, independent end-to-end final-response evaluation and tested guards.
+Initial generated responses must be review-first; automation needs promotion
+gates and separate explicit learner enablement. This accepted design is not
+yet implemented. Default flag-off preview behavior, null confidence, error
+handling, and preview review/delivery restrictions remain unchanged.

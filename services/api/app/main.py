@@ -2,9 +2,13 @@ import logging
 import time
 from uuid import UUID, uuid4
 from fastapi import FastAPI, HTTPException, Request
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.logging_utils import configure_logging, log_event
-from app.orchestrator import PreviewOnlyDraftOrchestrator
+from app.orchestrator import (
+    DraftGenerationError,
+    GeneratedDraftOrchestrator,
+    PreviewOnlyDraftOrchestrator,
+)
 from app.review_workflow import apply_review_decision
 from app.retriever import PgVectorRetriever
 from app.embedder import EmbeddingProviderError, OllamaEmbeddingProvider
@@ -27,6 +31,7 @@ from app.retrieval_repository import (
     RetrievalIndexConfigurationError,
 )
 from app.llm_provider import OllamaLLMProvider
+from app.llm_provider import DraftGenerationProvider
 from app.reviewer_assistance import (
     AssessmentFeedbackRequest,
     RecordedAssessmentFeedback,
@@ -112,18 +117,38 @@ retrieval_query_retriever = PgVectorRetriever(
     repository=retrieval_repository,
 )
 
-orchestrator = PreviewOnlyDraftOrchestrator(
+def create_support_draft_orchestrator(
+    *,
+    app_settings: Settings,
+    retriever: PgVectorRetriever,
+    provider: DraftGenerationProvider,
+) -> PreviewOnlyDraftOrchestrator | GeneratedDraftOrchestrator:
+    if app_settings.support_draft_generation_enabled:
+        return GeneratedDraftOrchestrator(
+            retriever=retriever,
+            provider=provider,
+            assessor_model=app_settings.evidence_assessor_model,
+            generator_model=app_settings.support_draft_generator_model,
+            max_output_tokens=app_settings.support_draft_generation_max_tokens,
+        )
+    return PreviewOnlyDraftOrchestrator(retriever=retriever)
+
+
+support_llm_provider = OllamaLLMProvider(
+    base_url=settings.ollama_base_url,
+    timeout_seconds=settings.ollama_timeout_seconds,
+)
+orchestrator = create_support_draft_orchestrator(
+    app_settings=settings,
     retriever=retrieval_query_retriever,
+    provider=support_llm_provider,
 )
 reviewer_assistance_service = ReviewerAssistanceService(
     repository=PostgresReviewerAssistanceRepository(
         dsn=settings.postgres_dsn,
         connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
     ),
-    provider=OllamaLLMProvider(
-        base_url=settings.ollama_base_url,
-        timeout_seconds=settings.ollama_timeout_seconds,
-    ),
+    provider=support_llm_provider,
     model_name=settings.evidence_assessor_model,
 )
 
@@ -191,6 +216,8 @@ def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
     try:
         result = orchestrator.draft_reply(payload)
     except EmbeddingProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except DraftGenerationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except RetrievalIndexConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "source_key": "billing-invoice-faq-01",
+    "title": "Synthetic Invoice Copies and Fields FAQ",
+    "doc_type": "customer_faq",
+    "product_area": "billing",
+    "policy_version": "week4-synthetic-v1",
+    "effective_date": "2026-10-14",
+    "access_scope": "public"
+  },
+  "content": "# Local synthetic invoice FAQ\n\nThis is an invented, customer-facing knowledge source for the local support demo only. It does not describe a real product and must not be used for real customer requests.\n\n## Invoice copies\n\nOnly workspace owners and billing admins can download issued invoices for a workspace they are authorized to access. Regular workspace members cannot download invoices.\n\nTo download an issued invoice, sign in, open Billing > Invoices, select the invoice, and choose Download PDF.\n\nThis FAQ documents PDF downloads only; it does not specify CSV export or automatic emailing.\n\n## Invoice fields\n\nAn invoice number identifies the invoice document; it is not an account number or proof that payment has been completed.\n\nThe billing period is the date range covered by the invoice's charges; it is not the payment-due date.\n\nThe currency field identifies the denomination of the invoice amounts; it does not provide an exchange rate.\n\n## Copilot boundary\n\nThis local copilot can explain these FAQs. It does not retrieve or send private invoices, grant permissions, change billing details, cancel subscriptions, or process refunds."
+}
