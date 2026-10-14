@@ -88,6 +88,38 @@ sufficient.
   IDs, or invalid quotes, fail closed: do not draft and return an explicit API
   error. Do not fall back to `StubRetriever`.
 
+## Current runtime boundary: Stage A (2026-10-14)
+
+The generation design above is not a certification that the local assessor
+is accurate enough to authorize customer-facing drafts. Development status
+agreement remains 3/5, and the small held-out run does not establish semantic
+coverage or safe generalization. Do not chase development 5/5 as a release
+proof or weaken the validators to obtain it.
+
+The implemented next slice is separate, opt-in reviewer evidence assistance
+on saved preview traces. It makes at most one application model call for a
+newly reserved request UUID, records either a proposal or explicit failure,
+and exposes the original passages and separate reviewer feedback. Same-ID
+replay never requests another inference; new IDs deliberately create new
+attempts. Reservation commits before inference, avoiding a database
+transaction across the model call.
+
+All successful reads identify the result as an unverified advisory proposal.
+Its derived status/action is metadata, not an instruction executed by the
+support workflow. Exact quote checks prove provenance only, not applicability
+or entailment. Feedback can document omitted requests, unsupported answers,
+missing conditions, and clarification problems; it is neither draft approval
+nor automatically trusted gold.
+
+`/v1/support/draft` remains retrieval-preview-only, with unknown confidence
+and mandatory human review. Assistance and feedback cannot change review or
+simulated-delivery eligibility. Future generated-answer integration still
+requires independent semantic evaluation and the generation gate in this ADR.
+This slice has no authenticated reviewer authorization, queue, or crash
+recovery worker; a reserved attempt may remain running after interruption.
+Prompt/schema hashes and the configured model tag distinguish attempts but
+are not immutable model-digest provenance.
+
 ## Options Considered
 
 1. Use a cosine-distance cutoff as the sufficiency decision. Rejected because

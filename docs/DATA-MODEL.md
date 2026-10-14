@@ -11,6 +11,8 @@ This schema supports deterministic support operations plus RAG traceability.
 - `draft_mode`: distinguishes a generated candidate from the current preview-only abstention.
 - `support_review_events`: append-only reviewer decisions linked to draft trace, including serialized audit payload.
 - `support_delivery_events`: one hash-only receipt for a locally simulated delivery per draft trace.
+- `reviewer_assessment_events`: reserved, trace-linked advisory assessment attempts and their terminal outcomes.
+- `reviewer_assessment_feedback`: immutable per-assessment/per-reviewer feedback, separate from draft decisions.
 
 ## Human-review lifecycle
 
@@ -50,6 +52,48 @@ because neither score is calibrated or computed. Preview-only drafts require
 review, cannot be approved as customer responses, and can enter simulated
 delivery only after a human edit. A generated-mode draft retains the existing
 review and delivery rules.
+
+## Advisory reviewer evidence assistance
+
+`reviewer_assessment_events` uses the client-generated request UUID as its
+`assessment_id`. It stores the trace, caller-supplied reviewer, configured
+model tag, system-prompt and proposal-schema SHA-256 fingerprints, timestamps,
+elapsed time, optional Ollama token/duration metrics, and one terminal proposal
+or error. The question and full citation snapshot are loaded from the linked
+`support_draft_events` row rather than duplicated or re-retrieved.
+
+The state machine is `running` -> `completed` or `failed`:
+
+- Running has no proposal, error, completion timestamp, elapsed time, or metrics.
+- Completed requires a proposal, completion timestamp, and elapsed time, with
+  no error.
+- Failed requires an explicit error, completion timestamp, and elapsed time,
+  with no proposal. Provider metrics may remain available when later proposal
+  validation fails.
+
+SQL constraints and typed validation enforce these shapes. A short transaction
+reserves the UUID with `ON CONFLICT DO NOTHING` and commits before the model
+call. Only the reservation winner invokes the assessor. Completion updates
+only a running row, so terminal outcomes cannot be replaced through the
+repository. Same-ID requests reuse the outcome and must match its original
+trace/reviewer; a new UUID is an explicit new attempt. An index on trace and
+start time supports investigation of attempt history.
+
+`reviewer_assessment_feedback` stores verdict, unique reason codes, optional
+corrected status, notes, reviewer, and timestamp. A unique
+`(assessment_id, reviewer_id)` constraint preserves one immutable event:
+identical replay is reused; conflicting replacement is rejected. The
+repository checks terminal state before accepting feedback. Failed attempts
+require explicit failure feedback, not a corrected evidence classification.
+Feedback never modifies the draft, review state, review events, or delivery
+eligibility, and does not automatically create evaluation gold labels.
+
+This separates model proposals, reviewer feedback, and authorization. Caller
+identity is not authenticated, exact quotes do not prove semantic entailment,
+and model tags plus prompt/schema hashes do not provide immutable model-version
+provenance. A crash or completion-write failure can leave a reservation running;
+there is no automatic recovery or retry. A new UUID deliberately permits a new
+attempt, without implying distributed exactly-once execution.
 
 ## Knowledge entities
 

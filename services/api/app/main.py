@@ -1,6 +1,6 @@
 import logging
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 from fastapi import FastAPI, HTTPException, Request
 from app.config import get_settings
 from app.logging_utils import configure_logging, log_event
@@ -26,6 +26,17 @@ from app.retrieval_repository import (
     PostgresRetrievalRepository,
     RetrievalIndexConfigurationError,
 )
+from app.llm_provider import OllamaLLMProvider
+from app.reviewer_assistance import (
+    AssessmentFeedbackRequest,
+    RecordedAssessmentFeedback,
+    ReviewerAssessmentRequest,
+    ReviewerAssessmentResponse,
+    ReviewerAssistanceConflictError,
+    ReviewerAssistanceNotFoundError,
+    ReviewerAssistanceService,
+)
+from app.reviewer_assistance_repository import PostgresReviewerAssistanceRepository
 from app.schemas import (
     IngestionIndexRequest,
     IngestionIndexResponse,
@@ -103,6 +114,17 @@ retrieval_query_retriever = PgVectorRetriever(
 
 orchestrator = PreviewOnlyDraftOrchestrator(
     retriever=retrieval_query_retriever,
+)
+reviewer_assistance_service = ReviewerAssistanceService(
+    repository=PostgresReviewerAssistanceRepository(
+        dsn=settings.postgres_dsn,
+        connect_timeout_seconds=settings.postgres_connect_timeout_seconds,
+    ),
+    provider=OllamaLLMProvider(
+        base_url=settings.ollama_base_url,
+        timeout_seconds=settings.ollama_timeout_seconds,
+    ),
+    model_name=settings.evidence_assessor_model,
 )
 
 
@@ -183,6 +205,64 @@ def draft_support_reply(payload: SupportDraftRequest) -> SupportDraftResponse:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     metrics.record_support_draft(requires_human_review=result.requires_human_review)
     return result
+
+
+@app.post("/v1/support/evidence-assessments", response_model=ReviewerAssessmentResponse)
+def create_reviewer_assessment(payload: ReviewerAssessmentRequest) -> ReviewerAssessmentResponse:
+    try:
+        response = reviewer_assistance_service.create(payload)
+    except (SupportDraftNotFoundError, ReviewerAssistanceNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ReviewerAssistanceConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    record = response.assessment
+    if record.state == "running":
+        raise HTTPException(status_code=409, detail={
+            "assessment_id": str(record.assessment_id),
+            "state": "running",
+            "message": "This request ID is already running; read the saved assessment instead of retrying inference.",
+        })
+    if record.state == "failed":
+        if record.error is None:
+            raise HTTPException(status_code=503, detail="Saved assessment failure details are unavailable.")
+        raise HTTPException(
+            status_code=409 if record.error.code == "invalid_saved_evidence" else 502,
+            detail={
+                "assessment_id": str(record.assessment_id),
+                "state": "failed",
+                "error": record.error.model_dump(mode="json"),
+            },
+        )
+    return response
+
+
+@app.get("/v1/support/evidence-assessments/{assessment_id}", response_model=ReviewerAssessmentResponse)
+def get_reviewer_assessment(assessment_id: UUID) -> ReviewerAssessmentResponse:
+    try:
+        return reviewer_assistance_service.get(assessment_id)
+    except ReviewerAssistanceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post(
+    "/v1/support/evidence-assessments/{assessment_id}/feedback",
+    response_model=RecordedAssessmentFeedback,
+)
+def record_assessment_feedback(
+    assessment_id: UUID, payload: AssessmentFeedbackRequest,
+) -> RecordedAssessmentFeedback:
+    try:
+        return reviewer_assistance_service.record_feedback(assessment_id, payload)
+    except ReviewerAssistanceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ReviewerAssistanceConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PersistenceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/v1/retrieval/query", response_model=RetrievalQueryResponse)

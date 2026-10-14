@@ -99,6 +99,40 @@ truncation. Status agreement remained 3/5, false-sufficient decisions 0/4,
 and gold-quote recall 6/6. The power-source fix enables prompt iteration but
 does not pass the evidence gate. See the [local GPU power check](./evals/README.md#local-gpu-power-check).
 
+### Stage A: opt-in reviewer evidence assistance
+
+- [x] Add separate assessment creation/read APIs on saved preview traces, without changing the default draft endpoint.
+- [x] Reserve explicit client UUIDs before inference; reuse recorded outcomes and require a new UUID for another attempt.
+- [x] Persist completed proposals or explicit failures, model/prompt/schema metadata, and available generation timings.
+- [x] Record immutable reviewer feedback separately from approval, delivery, and evaluation gold.
+- [x] Test advisory boundaries, provenance validation, request/feedback replay, explicit errors, and existing preview/review/delivery behavior.
+
+Validation evidence (2026-10-14): 97 focused unit/regression tests passed, and
+the edited Python modules reported no editor diagnostics. Migration `005`
+matches the fresh-schema definitions and was applied to the local database;
+the rebuilt API is healthy with all three assistance routes registered.
+
+One real development request completed with Qwen3:4b: 10.433 seconds client
+wall time, including 6.323 seconds loading the model and 3.793 seconds decoding
+351 output tokens. Same-ID replay took 0.014 seconds and returned the same
+recorded outcome. Saved GET, feedback persistence/replay, conflict/validation
+responses, and unchanged approval/delivery refusal passed. This is one cold
+request, not a latency distribution or a new accuracy evaluation.
+
+Real PostgreSQL checks also passed: eight concurrent same-UUID reservations
+produced one winner; invalid outcome shapes and terminal replacement were
+rejected. A controlled fake-provider outage made one call, preserved a
+readable failed outcome, and did not repeat inference on running/failed
+replays. Explicit failed-assessment feedback was durable. The synthetic
+preview, its three attempts, and test feedback were removed after validation;
+no test records were promoted into human quality labels.
+
+The assessor is now available only as opt-in advisory assistance, not in
+draft generation. Missing authentication, reviewer UI, crash recovery, and
+immutable model-digest provenance remain explicit limitations. See the
+[usage guide](../README.md#opt-in-reviewer-evidence-assistance-stage-a) and
+[data model](./DATA-MODEL.md#advisory-reviewer-evidence-assistance).
+
 ### Deferred: generated-answer integration
 
 `/v1/support/draft` now uses real pgvector retrieval in preview-only mode. With
@@ -109,8 +143,9 @@ unknown, and always starts in `pending_review`. Preview-only drafts cannot be
 approved unchanged or simulated as delivered; a human must edit the draft.
 
 This completes the retrieval-preview items, not generated RAG. Do not spend
-more time trying to make Qwen3:4b perfect; keep the assessor standalone until
-the labeled evaluation gate passes. The review endpoint enforces a persisted
+more time trying to make Qwen3:4b perfect; keep it out of draft generation until
+the labeled evaluation gate passes. Separate advisory assistance does not
+satisfy that gate. The review endpoint enforces a persisted
 `pending_review` -> `approved`/`edited`/`rejected` transition tied to the saved
 trace (see [ADR-009](./adr/009-persisted-support-review-lifecycle.md)). This is
 now enforced at the local simulated-delivery endpoint, which writes a hash-only

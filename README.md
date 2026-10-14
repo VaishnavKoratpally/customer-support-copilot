@@ -13,10 +13,12 @@ This is also a deep-learning project in AI engineering and system design. See [L
 
 ## Current milestone
 
-Week 1 baseline scaffold:
+Local retrieval-preview and advisory reviewer-assistance milestone:
 
 - local runtime stack (Postgres + Redis + Ollama + API) via Docker Compose
-- API skeleton with routing, retrieval, confidence policy, and HITL decisioning
+- real pgvector evidence previews without generated customer replies or confidence claims
+- persisted human-review lifecycle and locally simulated delivery gates
+- opt-in, recorded evidence-assessor proposals and separate reviewer feedback
 - architecture docs and ADR template
 - day-by-day execution checklist
 - v1 domain scope selected: B2B SaaS billing + account support
@@ -62,7 +64,7 @@ Copy-Item .env.example .env
 docker compose up -d postgres redis ollama pgadmin
 ```
 
-3) Initialize the database. The fresh schema includes the current tables and review lifecycle. When upgrading an existing Week 2 database, apply migrations in order before starting the API:
+3) Initialize the database. The fresh schema includes the review lifecycle, evidence-assessment attempts, and reviewer feedback. When upgrading an existing Week 2 database, apply migrations in order before starting the API:
 
 ```powershell
 # Fresh database
@@ -73,9 +75,11 @@ Get-Content .\services\api\db\migrations\001_week3_versioned_embeddings.sql -Raw
 Get-Content .\services\api\db\migrations\002_persisted_support_review_lifecycle.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\003_simulated_support_delivery.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 Get-Content .\services\api\db\migrations\004_preview_only_drafts.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
+Get-Content .\services\api\db\migrations\005_reviewer_evidence_assistance.sql -Raw | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U support_user -d support_copilot
 ```
 
-If migrations `001` through `003` were already applied, run only `004`.
+If migrations `001` through `003` were already applied, run `004` and `005`.
+If the database is already through `004`, run only `005`.
 
 4) Pull recommended models inside Ollama container:
 
@@ -123,6 +127,89 @@ curl -X POST http://localhost:8000/v1/support/simulated-deliveries `
 ```
 
 This records a hash-only receipt; it does not send a message to a customer or external service. Pending or rejected drafts are refused.
+
+## Opt-in reviewer evidence assistance (Stage A)
+
+The assessor is an **unverified advisory aid**, not an approval oracle. The
+default draft endpoint still performs retrieval only. A separate request
+assesses the canonical question and full citation passages saved under a
+`preview_only` trace: it does not repeat retrieval or generate a customer reply.
+The proposal, derived status/action, quotes, original passages, timing metadata,
+and feedback are inspectable. Even a `sufficient` proposal or
+`draft_from_determined_claims` action does not authorize drafting or delivery.
+
+After applying migration `005` and rebuilding the API, try this in PowerShell:
+
+```powershell
+$previewBody = @{
+  question = "How long does the initial review take for a duplicate charge?"
+} | ConvertTo-Json
+$preview = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/v1/support/draft" `
+  -ContentType "application/json" -Body $previewBody
+
+$requestId = [guid]::NewGuid().ToString()
+$assessmentBody = @{
+  trace_id = $preview.trace_id
+  request_id = $requestId
+  reviewer_id = "agent-1"
+} | ConvertTo-Json
+$assessment = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8000/v1/support/evidence-assessments" `
+  -ContentType "application/json" -Body $assessmentBody
+
+$saved = Invoke-RestMethod `
+  -Uri "http://localhost:8000/v1/support/evidence-assessments/$requestId"
+$saved.assessment.proposed_assessment | ConvertTo-Json -Depth 10
+$saved.assessment.citations | ConvertTo-Json -Depth 10
+
+# Submit helpful feedback only after checking the findings against the passages.
+$feedbackBody = @{
+  reviewer_id = "agent-1"
+  verdict = "helpful"
+  notes = "I checked the proposed findings against the displayed passages."
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8000/v1/support/evidence-assessments/$requestId/feedback" `
+  -ContentType "application/json" -Body $feedbackBody
+```
+
+Keep the same request UUID when retrying transport or reading its recorded
+outcome. Repeating the same body reuses the existing attempt, without another
+model call. The UUID is bound to the original trace and reviewer; changing
+either returns 409. A **new UUID explicitly requests another attempt**, even
+when the question is unchanged. Attempts retain the configured model tag and
+prompt/schema SHA-256 fingerprints; these are not immutable model digests.
+
+Completed creation returns 200. A still-running duplicate returns 409.
+Assessor/provider or proposal-validation failures are persisted and return 502;
+invalid saved provenance returns 409. Both include the assessment ID for a
+saved GET. Missing records return 404, database failures 503, and malformed
+requests 422. GET returns the recorded state, including explicit failed
+outcomes; failure is never converted into an evidence status such as `none`.
+
+Feedback verdicts are `helpful`, `needs_correction`, and `unusable`. Corrections
+and unusable assessments require nonblank notes plus unique reason codes:
+`incorrect_status`, `request_omission`, `unsupported_claim`, `missing_condition`,
+`irrelevant_fact`, `clarification_problem`, or `assessment_failed`.
+Optional `corrected_status` requires `incorrect_status`. Failed attempts accept
+only unusable feedback containing `assessment_failed`, without a status
+correction; running attempts do not accept feedback. An identical feedback
+retry returns the same event, while replacing feedback for the same reviewer
+and assessment returns 409. Notes are limited to 2,000 characters.
+
+Feedback does not approve, edit, reject, or deliver a draft, and is not
+automatically promoted into evaluation gold. Exact quotes establish provenance,
+not semantic entailment: inspect applicability, omitted requests, and conditions.
+Reviewer identity remains caller-supplied; these are local workflow APIs, **not
+authenticated reviewer-only access**. Do not expose them publicly as-is.
+
+This is a synchronous, opt-in call, not a job queue. A crash or completion-write
+outage can leave an attempt `running`; that state is not proof the worker is
+alive. There is no automatic retry, lease expiry, or recovery worker. Inspect
+the saved attempt and deliberately use a new UUID when another call is wanted.
+There is no reviewer UI or trace-to-attempt listing endpoint yet; retain request
+IDs in the client. See the [data model](docs/DATA-MODEL.md) and
+[assessment boundary](docs/adr/008-claim-level-evidence-assessment.md).
 
 ## Step through a draft request in VS Code
 
