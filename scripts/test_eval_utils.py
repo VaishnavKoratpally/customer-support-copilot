@@ -1,8 +1,10 @@
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from eval_utils import EvaluationAPIError, call_support_draft
+from eval_utils import EvaluationAPIError, call_support_draft, load_cases
 
 
 class FakeResponse:
@@ -20,6 +22,23 @@ class FakeResponse:
 
 
 class EvaluationAPITests(unittest.TestCase):
+    def test_load_cases_supports_a_contract_specific_id_field(self):
+        case = {
+            "case_id": "faq-dev-001",
+            "question": "How do I download an issued invoice?",
+        }
+        with TemporaryDirectory() as temp_dir:
+            dataset = Path(temp_dir) / "cases.jsonl"
+            dataset.write_text(json.dumps(case) + "\n", encoding="utf-8")
+
+            cases = load_cases(
+                dataset,
+                {"case_id", "question"},
+                id_field="case_id",
+            )
+
+        self.assertEqual(cases, [case])
+
     def call_api(self, body: dict) -> dict:
         with patch("eval_utils.urlopen", return_value=FakeResponse(body)):
             return call_support_draft(

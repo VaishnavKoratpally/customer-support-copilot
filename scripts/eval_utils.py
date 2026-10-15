@@ -16,7 +16,12 @@ class EvaluationAPIError(RuntimeError):
     pass
 
 
-def load_cases(path: Path, required_fields: set[str]) -> list[dict[str, Any]]:
+def load_cases(
+    path: Path,
+    required_fields: set[str],
+    *,
+    id_field: str = "id",
+) -> list[dict[str, Any]]:
     cases: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     try:
@@ -30,16 +35,20 @@ def load_cases(path: Path, required_fields: set[str]) -> list[dict[str, Any]]:
                     raise DatasetError(f"{path}:{line_number}: invalid JSON: {exc}") from exc
                 if not isinstance(case, dict):
                     raise DatasetError(f"{path}:{line_number}: each JSONL row must be an object")
-                missing = required_fields - case.keys()
+                missing = (required_fields | {id_field}) - case.keys()
                 if missing:
                     raise DatasetError(
                         f"{path}:{line_number}: missing required fields: {', '.join(sorted(missing))}"
                     )
-                case_id = case["id"]
+                case_id = case[id_field]
                 if not isinstance(case_id, str) or not case_id.strip():
-                    raise DatasetError(f"{path}:{line_number}: id must be a non-empty string")
+                    raise DatasetError(
+                        f"{path}:{line_number}: {id_field} must be a non-empty string"
+                    )
                 if case_id in seen_ids:
-                    raise DatasetError(f"{path}:{line_number}: duplicate id {case_id!r}")
+                    raise DatasetError(
+                        f"{path}:{line_number}: duplicate {id_field} {case_id!r}"
+                    )
                 seen_ids.add(case_id)
                 if not isinstance(case["question"], str) or not case["question"].strip():
                     raise DatasetError(f"{path}:{line_number}: question must be a non-empty string")

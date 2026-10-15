@@ -110,6 +110,33 @@ docker compose run --rm --no-deps -T `
 
 Each evaluator writes a timestamped artifact under `docs/evals/results/`.
 
+## Week 4 FAQ pilot response capture
+
+Capture is deliberately separate from scoring: one sequential request per
+frozen case saves the complete API response, client latency, and any API error
+to a local artifact. The runner checks the case-set hash before making calls.
+It does not label answers as correct, compute a quality score, or tune a model.
+Raw questions and drafts stay in the Git-ignored `docs/evals/results/` folder.
+
+For a development run, first make sure the running API has
+`SUPPORT_DRAFT_GENERATION_ENABLED=true` and
+`SUPPORT_DRAFT_AUTOMATION_ENABLED=false`. Then run from the repository root:
+
+```powershell
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  api python /evaluation/scripts/capture_faq_pilot_eval.py `
+    --split development `
+    --api-base-url http://host.docker.internal:8000
+```
+
+The API must be reachable on host port `8000`; its configured Ollama service
+must also be available. The default split is `development`. Use
+`--split heldout` only for the single final run after development tuning is
+complete. Review the saved per-case responses manually against the frozen
+semantic rubric; capture success is not a quality pass.
+
 ## Claim-level evidence assessor pilot
 
 Run the five-case pilot from the repository root in PowerShell:
