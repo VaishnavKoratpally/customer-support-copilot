@@ -15,6 +15,8 @@ def resolve_delivery_content(
     draft_mode: DraftMode,
     review_status: ReviewLifecycleStatus,
     requires_human_review: bool,
+    automation_enabled: bool = False,
+    automation_eligible: bool = False,
     draft: str,
     review_action: ReviewStatus | None,
     final_draft: str | None,
@@ -29,9 +31,21 @@ def resolve_delivery_content(
         )
 
     if review_status == "not_required":
+        if draft_mode != "generated":
+            raise DeliveryNotAllowedError(
+                "Only generated drafts can use the not-required delivery path."
+            )
         if requires_human_review:
             raise DeliveryNotAllowedError(
                 "The draft requires review but is marked as not requiring review."
+            )
+        if not automation_enabled:
+            raise DeliveryNotAllowedError(
+                "A not-required draft cannot be delivered while automation is disabled."
+            )
+        if not automation_eligible:
+            raise DeliveryNotAllowedError(
+                "A not-required draft needs a persisted eligible automation decision."
             )
         if draft.strip() == "":
             raise DeliveryNotAllowedError("The persisted draft is empty.")

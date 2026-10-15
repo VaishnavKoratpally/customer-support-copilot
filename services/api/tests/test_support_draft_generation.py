@@ -5,9 +5,11 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app import main
 from app.config import Settings
+from app.faq_automation import APPROVED_FAQ_CONTENT_SHA256
 from app.evidence_assessment import (
     EvidenceAssessmentProposal,
     EvidenceQuote,
@@ -66,18 +68,25 @@ def make_chunk(
     text: str,
     *,
     source_id: str = "billing-invoice-faq-01",
+    section_path: str = "Invoice copies",
+    policy_version: str = "week4-synthetic-v1",
+    access_scope: str = "public",
+    source_checksum_sha256: str | None = None,
 ) -> RetrievedChunk:
+    if source_checksum_sha256 is None and source_id == "billing-invoice-faq-01":
+        source_checksum_sha256 = APPROVED_FAQ_CONTENT_SHA256
     return RetrievedChunk(
         chunk_id=uuid4(),
         source_id=source_id,
         title="Synthetic Invoice Copies and Fields FAQ",
-        policy_version="week4-synthetic-v1",
+        policy_version=policy_version,
         effective_date=date(2026, 10, 14),
-        access_scope="public",
+        access_scope=access_scope,
         chunk_index=0,
-        section_path="Invoice copies",
+        section_path=section_path,
         text=text,
         cosine_distance=0.12,
+        source_checksum_sha256=source_checksum_sha256,
     )
 
 
@@ -121,8 +130,8 @@ class FakeGenerationProvider:
         assessment: EvidenceAssessmentProposal | str | None = None,
         assessment_call_metrics: OllamaGenerationMetrics | None = None,
         draft_text: str = (
-            "Workspace owners and billing admins with access to the workspace "
-            "can download an issued invoice as a PDF. Sign in, open Billing > "
+            "Only workspace owners and billing admins authorized to access the "
+            "workspace can download an issued invoice as a PDF. Sign in, open Billing > "
             "Invoices, select the invoice, and choose Download PDF."
         ),
         generation_output: str | None = None,
@@ -199,6 +208,8 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         self,
         provider: FakeGenerationProvider,
         hits: tuple[RetrievedChunk, ...] | None = None,
+        *,
+        automation_enabled: bool = False,
     ) -> tuple[GeneratedDraftOrchestrator, FakeRetriever]:
         retriever = FakeRetriever((self.chunk,) if hits is None else hits)
         return (
@@ -208,6 +219,7 @@ class GeneratedSupportDraftTests(unittest.TestCase):
                 assessor_model="qwen3:4b",
                 generator_model="qwen3:4b",
                 max_output_tokens=256,
+                automation_enabled=automation_enabled,
             ),
             retriever,
         )
@@ -268,6 +280,19 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         self.assertEqual(response.review_triggers, ["generated_pilot_review_first"])
         self.assertEqual(response.generation_metadata.outcome, "generated")
         self.assertTrue(response.generation_metadata.generation_completion_verified)
+        self.assertFalse(response.generation_metadata.automation_enabled)
+        self.assertTrue(
+            response.generation_metadata.automation_eligibility.eligible_candidate
+        )
+        self.assertEqual(
+            response.generation_metadata.automation_eligibility.semantic_review_status,
+            "not_performed",
+        )
+        self.assertTrue(
+            all(
+                response.generation_metadata.final_response_checks.model_dump().values()
+            )
+        )
         self.assertEqual(response.generation_metadata.assessor_model, "qwen3:4b")
         self.assertEqual(response.generation_metadata.generator_model, "qwen3:4b")
         self.assertEqual(response.generation_metadata.generator_max_output_tokens, 256)
@@ -283,6 +308,204 @@ class GeneratedSupportDraftTests(unittest.TestCase):
             len(response.generation_metadata.generator_schema_sha256),
             64,
         )
+
+    def test_automation_enablement_only_handles_a_fully_eligible_candidate(self):
+        enabled_provider = FakeGenerationProvider(
+            assessment=supported_invoice_proposal(self.chunk),
+        )
+        enabled_orchestrator, _ = self.make_orchestrator(
+            enabled_provider,
+            automation_enabled=True,
+        )
+
+        eligible = enabled_orchestrator.draft_reply(self.payload)
+
+        self.assertTrue(eligible.generation_metadata.automation_enabled)
+        self.assertTrue(
+            eligible.generation_metadata.automation_eligibility.eligible_candidate
+        )
+        self.assertFalse(eligible.requires_human_review)
+        self.assertEqual(eligible.review_status, "not_required")
+        self.assertEqual(eligible.review_triggers, [])
+        self.assertIsNone(eligible.escalation_reason)
+        self.assertIsNone(eligible.retrieval_confidence)
+        self.assertIsNone(eligible.answer_confidence)
+
+        generic_provider = FakeGenerationProvider(
+            assessment=supported_invoice_proposal(self.chunk),
+        )
+        generic_orchestrator, _ = self.make_orchestrator(
+            generic_provider,
+            automation_enabled=True,
+        )
+        generic = generic_orchestrator.draft_reply(
+            SupportDraftRequest(question="I need help with my invoice.")
+        )
+
+        self.assertEqual(generic.risk_level, "low")
+        self.assertTrue(generic.requires_human_review)
+        self.assertEqual(generic.review_status, "pending_review")
+        self.assertFalse(
+            generic.generation_metadata.automation_eligibility.eligible_candidate
+        )
+        self.assertIn(
+            "request_family_not_approved",
+            generic.generation_metadata.automation_eligibility.reason_codes,
+        )
+
+    def test_approved_invoice_field_faqs_can_be_eligible(self):
+        cases = (
+            (
+                "What does the invoice number identify?",
+                "invoice number meaning",
+                "An invoice number identifies the invoice document; it is not an account number or proof that payment has been completed.",
+                "An invoice number identifies the invoice document; it is not an account number or proof that payment has been completed.",
+            ),
+            (
+                "What does the billing period on an invoice cover?",
+                "billing period coverage",
+                "The billing period is the date range covered by the invoice's charges; it is not the payment-due date.",
+                "The billing period is the date range covered by the invoice's charges; it is not the payment-due date.",
+            ),
+            (
+                "What does the currency field mean?",
+                "currency denomination",
+                "The currency field identifies the denomination of invoice amounts; it does not provide an exchange rate.",
+                "The currency field identifies the denomination of invoice amounts; it does not provide an exchange rate.",
+            ),
+        )
+        for question, label, quote, draft in cases:
+            with self.subTest(question=question):
+                chunk = make_chunk(quote, section_path="Invoice fields")
+                assessment = EvidenceAssessmentProposal(
+                    requested_information=[
+                        RequestedInformationAssessment(
+                            requested_information=label,
+                            finding="supported",
+                            answer=quote,
+                            evidence=[EvidenceQuote(chunk_id=chunk.chunk_id, quote=quote)],
+                        )
+                    ],
+                    supporting_facts=[],
+                )
+                provider = FakeGenerationProvider(
+                    assessment=assessment,
+                    draft_text=draft,
+                )
+                orchestrator, _ = self.make_orchestrator(
+                    provider,
+                    hits=(chunk,),
+                    automation_enabled=True,
+                )
+
+                response = orchestrator.draft_reply(
+                    SupportDraftRequest(question=question)
+                )
+
+                self.assertTrue(
+                    response.generation_metadata.automation_eligibility.eligible_candidate
+                )
+                self.assertFalse(response.requires_human_review)
+                self.assertEqual(response.review_status, "not_required")
+
+    def test_final_checks_block_out_of_scope_unapproved_or_unsafe_candidates(self):
+        unapproved_checksum = make_chunk(
+            f"{ROLE_QUOTE}\n\n{STEPS_QUOTE}",
+            source_checksum_sha256="b" * 64,
+        )
+        wrong_section = make_chunk(
+            f"{ROLE_QUOTE}\n\n{STEPS_QUOTE}",
+            section_path="Invoice fields",
+        )
+        cases = (
+            (
+                "out_of_scope_email",
+                SupportDraftRequest(
+                    question="Can you email me a PDF copy of an issued invoice?"
+                ),
+                self.chunk,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(self.chunk)
+                ),
+                "out_of_scope_request",
+            ),
+            (
+                "unapproved_source_content",
+                self.payload,
+                unapproved_checksum,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(unapproved_checksum)
+                ),
+                "source_version_or_content_not_approved",
+            ),
+            (
+                "evidence_section_mismatch",
+                self.payload,
+                wrong_section,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(wrong_section)
+                ),
+                "evidence_section_mismatch",
+            ),
+            (
+                "missing_access_condition",
+                self.payload,
+                self.chunk,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(self.chunk),
+                    draft_text=(
+                        "Workspace owners and billing admins can download an "
+                        "issued invoice PDF. Sign in, open Billing > Invoices, "
+                        "select the invoice, and choose Download PDF."
+                    ),
+                ),
+                "required_condition_missing",
+            ),
+            (
+                "prohibited_action_claim",
+                self.payload,
+                self.chunk,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(self.chunk),
+                    draft_text=(
+                        "We are emailing an invoice now. Only workspace owners "
+                        "and billing admins authorized to access the workspace "
+                        "can download an issued invoice as a PDF."
+                    ),
+                ),
+                "prohibited_action_claim",
+            ),
+            (
+                "internal_identifier",
+                self.payload,
+                self.chunk,
+                FakeGenerationProvider(
+                    assessment=supported_invoice_proposal(self.chunk),
+                    draft_text=(
+                        "Only workspace owners and billing admins authorized "
+                        "to access the workspace can download an issued invoice "
+                        "as a PDF. Source ID: billing-invoice-faq-01."
+                    ),
+                ),
+                "internal_identifier_in_response",
+            ),
+        )
+        for case_name, request, chunk, provider, reason in cases:
+            with self.subTest(case=case_name):
+                orchestrator, _ = self.make_orchestrator(
+                    provider,
+                    hits=(chunk,),
+                    automation_enabled=True,
+                )
+
+                response = orchestrator.draft_reply(request)
+
+                self.assertTrue(response.requires_human_review)
+                self.assertEqual(response.review_status, "pending_review")
+                self.assertIn(
+                    reason,
+                    response.generation_metadata.automation_eligibility.reason_codes,
+                )
 
     def test_partial_assessment_generates_only_with_explicit_missing_part(self):
         unsupported_quote = "This FAQ does not specify when a credit will post."
@@ -339,7 +562,11 @@ class GeneratedSupportDraftTests(unittest.TestCase):
 
     def test_no_retrieval_returns_explicit_abstention_without_model_calls(self):
         provider = FakeGenerationProvider()
-        orchestrator, _ = self.make_orchestrator(provider, hits=())
+        orchestrator, _ = self.make_orchestrator(
+            provider,
+            hits=(),
+            automation_enabled=True,
+        )
 
         response = orchestrator.draft_reply(self.payload)
 
@@ -353,6 +580,14 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         self.assertEqual(response.review_status, "pending_review")
         self.assertIsNone(response.evidence_assessment)
         self.assertIsNone(response.generation_metadata.assessor_model)
+        self.assertFalse(
+            response.generation_metadata.automation_eligibility.eligible_candidate
+        )
+        self.assertTrue(response.generation_metadata.automation_enabled)
+        self.assertIn(
+            "no_retrieved_evidence",
+            response.generation_metadata.automation_eligibility.reason_codes,
+        )
 
     def test_none_insufficient_and_clarification_do_not_generate_customer_text(self):
         cases = (
@@ -415,7 +650,10 @@ class GeneratedSupportDraftTests(unittest.TestCase):
     def test_high_risk_sufficient_draft_still_requires_human_review(self):
         proposal = supported_invoice_proposal(self.chunk)
         provider = FakeGenerationProvider(assessment=proposal)
-        orchestrator, _ = self.make_orchestrator(provider)
+        orchestrator, _ = self.make_orchestrator(
+            provider,
+            automation_enabled=True,
+        )
 
         response = orchestrator.draft_reply(
             SupportDraftRequest(
@@ -427,6 +665,10 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         self.assertIn("high_risk_intent", response.review_triggers)
         self.assertTrue(response.requires_human_review)
         self.assertEqual(response.review_status, "pending_review")
+        self.assertIn(
+            "risk_not_low",
+            response.generation_metadata.automation_eligibility.reason_codes,
+        )
 
     def test_invalid_assessment_quote_fails_before_generation(self):
         invalid = EvidenceAssessmentProposal(
@@ -507,7 +749,14 @@ class GeneratedSupportDraftTests(unittest.TestCase):
             orchestrator.draft_reply(self.payload)
 
     def test_malformed_or_blank_structured_reply_is_rejected(self):
-        for output in ("not JSON", '{"draft": "   "}', '{"draft": "Answer", "extra": 1}'):
+        long_output = " ".join(["word"] * 71)
+        for output in (
+            "not JSON",
+            '{"draft": "   "}',
+            '{"draft": "Answer", "extra": 1}',
+            json.dumps({"draft": long_output}),
+            json.dumps({"draft": "One. Two. Three. Four."}),
+        ):
             with self.subTest(output=output):
                 provider = FakeGenerationProvider(
                     assessment=supported_invoice_proposal(self.chunk),
@@ -526,7 +775,14 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         provider = Mock()
         defaults = Settings(_env_file=None)
         self.assertFalse(Settings.model_fields["support_draft_generation_enabled"].default)
+        self.assertFalse(Settings.model_fields["support_draft_automation_enabled"].default)
         self.assertFalse(defaults.support_draft_generation_enabled)
+        self.assertFalse(defaults.support_draft_automation_enabled)
+        with self.assertRaises(ValidationError):
+            Settings(
+                _env_file=None,
+                SUPPORT_DRAFT_AUTOMATION_ENABLED=True,
+            )
         self.assertIsInstance(
             main.create_support_draft_orchestrator(
                 app_settings=defaults,
@@ -541,6 +797,7 @@ class GeneratedSupportDraftTests(unittest.TestCase):
             SUPPORT_DRAFT_GENERATION_ENABLED=True,
             SUPPORT_DRAFT_GENERATOR_MODEL="qwen3:4b",
             SUPPORT_DRAFT_GENERATION_MAX_TOKENS=256,
+            SUPPORT_DRAFT_AUTOMATION_ENABLED=True,
         )
         self.assertIsInstance(
             main.create_support_draft_orchestrator(

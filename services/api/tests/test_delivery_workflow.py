@@ -9,6 +9,8 @@ class DeliveryWorkflowTests(unittest.TestCase):
             draft_mode="generated",
             review_status="not_required",
             requires_human_review=False,
+            automation_enabled=True,
+            automation_eligible=True,
             draft="Persisted candidate.",
             review_action=None,
             final_draft=None,
@@ -16,6 +18,35 @@ class DeliveryWorkflowTests(unittest.TestCase):
 
         self.assertEqual(status, "not_required")
         self.assertEqual(content, "Persisted candidate.")
+
+    def test_not_required_draft_needs_persisted_automation_eligibility(self):
+        with self.assertRaisesRegex(
+            DeliveryNotAllowedError,
+            "persisted eligible automation decision",
+        ):
+            resolve_delivery_content(
+                draft_mode="generated",
+                review_status="not_required",
+                requires_human_review=False,
+                automation_enabled=True,
+                automation_eligible=False,
+                draft="Unverified candidate.",
+                review_action=None,
+                final_draft=None,
+            )
+
+    def test_not_required_draft_requires_automation_to_be_enabled(self):
+        with self.assertRaisesRegex(DeliveryNotAllowedError, "automation is disabled"):
+            resolve_delivery_content(
+                draft_mode="generated",
+                review_status="not_required",
+                requires_human_review=False,
+                automation_enabled=False,
+                automation_eligible=True,
+                draft="Not enabled candidate.",
+                review_action=None,
+                final_draft=None,
+            )
 
     def test_approved_draft_uses_persisted_review_final(self):
         status, content = resolve_delivery_content(

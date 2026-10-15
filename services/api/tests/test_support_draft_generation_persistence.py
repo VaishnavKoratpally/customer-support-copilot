@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from app.persistence import PostgresSupportRepository
 from app.schemas import (
+    FAQAutomationEligibility,
+    FAQFinalResponseChecks,
     SupportDraftGenerationMetadata,
     SupportDraftRequest,
     SupportDraftResponse,
@@ -85,6 +87,25 @@ class SupportDraftGenerationPersistenceTests(unittest.TestCase):
                 generator_elapsed_seconds=0.5,
                 generator_max_output_tokens=256,
                 generation_completion_verified=True,
+                automation_enabled=False,
+                final_response_checks=FAQFinalResponseChecks(
+                    retrieved_evidence_present=True,
+                    response_complete=True,
+                    request_is_low_risk=True,
+                    approved_faq_family_recognized=True,
+                    request_topics_covered=True,
+                    assessment_status_sufficient=True,
+                    evidence_provenance_valid=True,
+                    source_version_and_content_approved=True,
+                    evidence_sections_match_request=True,
+                    required_conditions_preserved=True,
+                    no_prohibited_action_claims=True,
+                    no_internal_identifiers=True,
+                ),
+                automation_eligibility=FAQAutomationEligibility(
+                    eligible_candidate=True,
+                    reason_codes=[],
+                ),
                 total_elapsed_seconds=1.4,
             ),
         )
@@ -112,6 +133,9 @@ class SupportDraftGenerationPersistenceTests(unittest.TestCase):
                 mode="json",
                 exclude_none=True,
             ),
+        )
+        self.assertTrue(
+            cursor.parameters[18].obj["automation_eligibility"]["eligible_candidate"]
         )
 
 

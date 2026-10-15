@@ -130,6 +130,7 @@ def create_support_draft_orchestrator(
             assessor_model=app_settings.evidence_assessor_model,
             generator_model=app_settings.support_draft_generator_model,
             max_output_tokens=app_settings.support_draft_generation_max_tokens,
+            automation_enabled=app_settings.support_draft_automation_enabled,
         )
     return PreviewOnlyDraftOrchestrator(retriever=retriever)
 

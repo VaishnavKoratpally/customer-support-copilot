@@ -96,6 +96,7 @@ class PostgresRetrievalRepositoryTests(unittest.TestCase):
             "Account recovery",
             "Use password recovery from the sign-in page.",
             0.18,
+            "a" * 64,
         )
         connection, cursor = self.make_connection(
             [[self.current_document_row()], [hit_row]]
@@ -117,6 +118,7 @@ class PostgresRetrievalRepositoryTests(unittest.TestCase):
         self.assertEqual(result[0].source_id, "account-recovery-01")
         self.assertEqual(result[0].policy_version, "v1")
         self.assertEqual(result[0].cosine_distance, 0.18)
+        self.assertEqual(result[0].source_checksum_sha256, "a" * 64)
 
         search_sql, search_parameters = cursor.executed_queries[-1]
         self.assertIn("c.embedding <=> %s::vector", search_sql)

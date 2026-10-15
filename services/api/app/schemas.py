@@ -1,7 +1,7 @@
 from typing import Literal
 from datetime import date, datetime
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.review_taxonomy import RejectionReasonCode
 
 ReviewStatus = Literal["approve", "edit", "reject"]
@@ -25,6 +25,56 @@ class DraftModelCallMetrics(BaseModel):
     eval_duration_ns: int | None = Field(default=None, ge=0)
     done_reason: str | None = None
     done: bool | None = None
+
+
+FAQAutomationBlockReason = Literal[
+    "no_retrieved_evidence",
+    "risk_not_low",
+    "request_family_not_approved",
+    "out_of_scope_request",
+    "request_coverage_unverified",
+    "assessment_not_sufficient",
+    "evidence_provenance_invalid",
+    "source_version_or_content_not_approved",
+    "evidence_section_mismatch",
+    "required_condition_missing",
+    "prohibited_action_claim",
+    "response_incomplete",
+    "internal_identifier_in_response",
+]
+
+
+class FAQFinalResponseChecks(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    retrieved_evidence_present: bool
+    response_complete: bool
+    request_is_low_risk: bool
+    approved_faq_family_recognized: bool
+    request_topics_covered: bool
+    assessment_status_sufficient: bool
+    evidence_provenance_valid: bool
+    source_version_and_content_approved: bool
+    evidence_sections_match_request: bool
+    required_conditions_preserved: bool
+    no_prohibited_action_claims: bool
+    no_internal_identifiers: bool
+
+
+class FAQAutomationEligibility(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    eligible_candidate: bool
+    reason_codes: list[FAQAutomationBlockReason]
+    semantic_review_status: Literal["not_performed"] = "not_performed"
+
+    @model_validator(mode="after")
+    def validate_reason_codes(self) -> "FAQAutomationEligibility":
+        if self.eligible_candidate and self.reason_codes:
+            raise ValueError("An eligible candidate cannot have blocking reasons.")
+        if not self.eligible_candidate and not self.reason_codes:
+            raise ValueError("An ineligible candidate must have a blocking reason.")
+        return self
 
 
 class SupportDraftGenerationMetadata(BaseModel):
@@ -54,6 +104,9 @@ class SupportDraftGenerationMetadata(BaseModel):
     generator_metrics: DraftModelCallMetrics | None = None
     generator_max_output_tokens: int | None = Field(default=None, ge=1)
     generation_completion_verified: bool | None = None
+    automation_enabled: bool = False
+    final_response_checks: FAQFinalResponseChecks | None = None
+    automation_eligibility: FAQAutomationEligibility | None = None
     total_elapsed_seconds: float = Field(ge=0)
 
 

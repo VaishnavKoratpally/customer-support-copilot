@@ -1,7 +1,7 @@
 # Week 4 Execution Checklist: Grounded Responses and Bounded Automation
 
 Date: 2026-10-14
-Status: W4-01 and W4-02 complete; W4-03 through W4-05 pending. Generated replies remain opt-in and review-first; automation is not enabled.
+Status: W4-01 through W4-03 complete; W4-04 and W4-05 pending. Generated replies remain opt-in and review-first by default; automation remains disabled.
 Baseline checkpoint: `5a50e1a` (`feat(review): persist advisory evidence assessments and feedback`).
 
 ## Objective
@@ -26,7 +26,7 @@ mandatory step before every response.
 - The assessor supplies one fallible signal. Neither `sufficient`, exact quotes, a default `general_support` classification, nor a model confidence claim alone authorizes automation.
 - Confidence stays unknown unless actually calibrated. Approve an explicit pilot-eligibility policy and update affected ADRs before changing routing; do not invent scores or lower thresholds to obtain a desired review rate.
 - The learner approved Qwen3:4b as the first generator baseline. Do not silently revive the legacy 14B/escalation path or start another model-comparison loop.
-- [ADR-012](./adr/012-scoped-faq-pilot-and-automation-eligibility.md) records the approved scoped eligibility policy: initial review-first generation; no-review only after validated whole-request support, final-response checks, promotion gates, and explicit enablement. Implementation remains pending.
+- [ADR-012](./adr/012-scoped-faq-pilot-and-automation-eligibility.md) records the approved scoped eligibility policy: initial review-first generation; no-review only after validated whole-request support, final-response checks, promotion gates, and explicit enablement. Deterministic eligibility checks are implemented; evaluation and promotion remain pending.
 
 ## Verified starting point
 
@@ -52,7 +52,7 @@ mandatory step before every response.
 |---|---|---|---|
 | W4-01 | Scope, baseline, and pilot contract | Complete | None |
 | W4-02 | Grounded response generation | Complete | W4-01 |
-| W4-03 | Final-response checks and risk routing | Pending | W4-01, W4-02 |
+| W4-03 | Final-response checks and risk routing | Complete | W4-01, W4-02 |
 | W4-04 | End-to-end evaluation | Pending | W4-02, W4-03 |
 | W4-05 | Bounded automation rollout and timing | Pending | W4-04 |
 
@@ -125,8 +125,8 @@ assessment and generation metadata. This is one development smoke sample, not
 the held-out evaluation, citation-precision result, or latency/quality
 benchmark, and is not permission to remove review. The assessor also proposed
 an unrelated invoice-number fact; it was not used in the reply, but its citation
-was returned. W4-03/W4-04 must evaluate final-response attribution and
-irrelevant citations.
+was returned. W4-03 adds deterministic eligibility guards; W4-04 must still
+evaluate claim-level attribution and citation relevance semantically.
 
 Design decision: the learner selected two sequential `qwen3:4b` calls:
 structured assessor first, then a response call using only validated answers/
@@ -144,13 +144,16 @@ remains null, and every generated-path outcome is review-first. See
 ID: **W4-03**
 Learning focus: generation, validation, and authorization are different jobs.
 
-- [ ] W4-03a: Validate the final response, not just the assessor proposal: provenance/attribution, permitted facts, required conditions, request coverage, and prohibited promises/actions. Document which checks are deterministic and which still require semantic evaluation.
-- [ ] W4-03b: Implement the approved eligibility policy: only explicitly covered low-risk FAQs passing the final checks may become `not_required` after promotion. High-risk, unknown/out-of-pilot, ambiguous, conflicting, partial, and failed cases remain review/clarification/abstention paths.
-- [ ] W4-03c: Add per-case routing reasons and tests proving that a correct quote, `sufficient`, or the router's default low-risk fallback cannot alone bypass review. Do not fake confidence to satisfy the legacy numerical gate.
-- [ ] W4-03d: Verify saved review/delivery state follows the decision: pending/rejected/preview-only cannot be simulated as delivered; eligible generated replies can follow the existing `not_required` path. Feedback never changes authorization.
+- [x] W4-03a: Validate the final response, not just the assessor proposal: provenance/attribution, permitted facts, required conditions, request coverage, and prohibited promises/actions. Document which checks are deterministic and which still require semantic evaluation.
+- [x] W4-03b: Implement the approved eligibility policy: only explicitly covered low-risk FAQs passing the final checks may become `not_required` after promotion. High-risk, unknown/out-of-pilot, ambiguous, conflicting, partial, and failed cases remain review/clarification/abstention paths.
+- [x] W4-03c: Add per-case routing reasons and tests proving that a correct quote, `sufficient`, or the router's default low-risk fallback cannot alone bypass review. Do not fake confidence to satisfy the legacy numerical gate.
+- [x] W4-03d: Verify saved review/delivery state follows the decision: pending/rejected/preview-only cannot be simulated as delivered; eligible generated replies can follow the existing `not_required` path. Feedback never changes authorization.
 
-Exit evidence: a tested eligibility/route matrix and persistence/API regressions,
-with automatic handling still gated until W4-04 passes.
+Exit evidence: deterministic final-response guards, persisted eligibility and
+per-case reasons, and tested review/delivery routing. These checks do not
+provide semantic entailment or citation relevance; W4-04 remains required
+before the default-off automation flag can be enabled. No held-out inference
+or tuning has occurred.
 
 ## Day 4: End-to-end evaluation
 
@@ -200,7 +203,8 @@ remains the local hash-only simulation; no real messages are sent.
 | 2026-10-14 | W4-01d (prepared) | Selected API venv `python -` offline check using `IngestionPreviewPipeline.preview` and Pydantic: source valid; 4 chunks; all 8 fact quotes retained; 8 development + 8 held-out cases valid with split coverage and consistent routes. Fingerprints recorded; learner case/rubric approval and freezing pending. No database/model calls. |
 | 2026-10-14 | W4-01d (complete) | Learner reviewed the contract summary and explicitly approved freezing cases/rubric after the guided walkthrough. Manifest, source/case hashes, 6 rubric dimensions, and 47 local documentation links verified; `git diff --check` passed. Full readings remain unchecked. At this freeze point there had been no indexing or inference; changes remain unstaged and uncommitted. |
 | 2026-10-14 | W4-02 (first smoke failures) | The first assessor result spliced non-adjacent source text into one quote; exact-substring validation correctly rejected it (HTTP 502). After strengthening the contiguous-quote instruction without weakening validation, the second request reached generation but its unstructured answer echoed the task and hit the 256-token cap (HTTP 502). |
-| 2026-10-14 | W4-02 (complete) | Switched the final response to a strict `{"draft": ...}` schema and concise customer-facing instructions, retaining the 256-token cap. The approved development question returned HTTP 200; the complete answer was supported by indexed FAQ evidence, cited, and persisted `pending_review` with null confidence. Trace `cb339370-f807-4d96-afe5-c0f57fe37efd`; API total 7.392s, assessor 6.123s/529 output tokens, generator 1.115s/66 output tokens, client wall 7.438s. One smoke sample only; no held-out run or citation-precision claim. The assessor proposed an unrelated invoice-number fact that was not used in the reply, but its citation was returned; final attribution/relevance is a W4-03/W4-04 item. API suite: 155 tests passed; compileall, diagnostics, and `git diff --check` passed. |
+| 2026-10-14 | W4-02 (complete) | Switched the final response to a strict `{"draft": ...}` schema and concise customer-facing instructions, retaining the 256-token cap. The approved development question returned HTTP 200; the complete answer was supported by indexed FAQ evidence, cited, and persisted `pending_review` with null confidence. Trace `cb339370-f807-4d96-afe5-c0f57fe37efd`; API total 7.392s, assessor 6.123s/529 output tokens, generator 1.115s/66 output tokens, client wall 7.438s. One smoke sample only; no held-out run or citation-precision claim. The assessor proposed an unrelated invoice-number fact that was not used in the reply, but its citation was returned; W4-03 added deterministic guards, while W4-04 must assess semantic attribution and citation relevance. API suite: 155 tests passed; compileall, diagnostics, and `git diff --check` passed. |
+| 2026-10-15 | W4-03 (complete) | Added final-response checks and persisted candidate/reason metadata, a separate default-off automation flag that requires generation, and fail-closed `not_required` delivery requiring both persisted enablement and eligibility. Reviewed/edited delivery remains unchanged. Focused positive/negative routing and delivery-persistence regressions pass; full API suite: `python -m unittest discover -s tests` (163 tests). `python -m compileall -q app tests`, workspace diagnostics, and `git diff --check` passed. No held-out inference, semantic promotion evaluation, or live-database delivery run occurred. Automation remains disabled; all Day 3 changes are unstaged and uncommitted. |
 
 Append future milestone evidence here and update the state table/checkboxes;
 do not replace failed measurements with later successful ones without context.

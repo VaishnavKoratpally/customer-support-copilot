@@ -1,7 +1,7 @@
 # ADR-012: Scoped FAQ generation and automation eligibility
 
 Date: 2026-10-14
-Status: Accepted; review-first generation implemented and smoke-verified. End-to-end evaluation, eligibility, and enablement remain pending.
+Status: Accepted; review-first generation and deterministic candidate eligibility are implemented. End-to-end evaluation, promotion, and automation enablement remain pending.
 
 ## Context
 
@@ -163,8 +163,9 @@ Persist the canonical response, validated assessment, source/chunk citations,
 model tags, prompt/schema hashes, per-call metrics, elapsed times, output
 budget, and completion verification. Prompt hashes avoid storing raw prompts,
 which contain the customer question; a mutable tag plus hash is not immutable
-model provenance or full reproducibility. This path does not implement
-automatic eligibility or change the human-review/simulated-delivery gates.
+model provenance or full reproducibility. At the Day 2 baseline, this path did
+not implement automatic eligibility or change the human-review/simulated-
+delivery gates.
 
 Day 1 validation was offline: source request schemas, existing section
 chunking/quote containment, JSONL integrity, fact/source references, split
@@ -191,5 +192,37 @@ delivery was enabled.
 
 The assessor also proposed an unrelated invoice-number fact. The response
 generator did not use it, but the current citation set still included its
-source. The smoke therefore does not establish citation precision; final
-attribution/relevance remains a W4-03/W4-04 evaluation item.
+source. The smoke therefore does not establish citation precision; semantic
+attribution/relevance remains a W4-04 evaluation item.
+
+## Week 4 Day 3: final-response checks and risk routing
+
+The generated path now records deterministic checks over the final response
+and its evidence: response length/sentence bounds, recognized FAQ family and
+request topics, low-risk routing, sufficient assessment, exact quote
+provenance, approved source/version/date/scope/content checksum, matching
+evidence sections, required FAQ conditions, prohibited action claims, and
+internal identifiers. The candidate decision and blocking reason codes are
+persisted with the generation metadata. A default-low-risk route or a
+`sufficient` assessment alone cannot pass this policy.
+
+These are conservative, contract-specific string and provenance guards. They
+do **not** establish semantic entailment between every final claim and its
+citations, citation relevance, or complete meaning/coverage; those require the
+independent same-response review in W4-04. The saved
+`semantic_review_status=not_performed` makes that limitation explicit.
+
+`SUPPORT_DRAFT_AUTOMATION_ENABLED` defaults to `false` and is invalid unless
+`SUPPORT_DRAFT_GENERATION_ENABLED` is also true. Keep it disabled until the
+W4-04 promotion gates pass and explicit approval is given. Only a generated,
+persisted candidate with both automation enabled and a positive eligibility
+record can use `not_required` simulated delivery. Pending, rejected,
+preview-only, disabled, and ineligible paths remain blocked; human-approved or
+human-edited delivery is unchanged. No real messages are sent.
+
+Focused regression coverage exercises eligible invoice-copy and invoice-field
+candidates, out-of-scope requests, unapproved source content/sections, missing
+conditions, prohibited action claims, internal identifiers, high-risk and
+default-low-risk fallbacks, and persisted delivery authorization. This
+coverage verifies implementation behavior, not semantic response quality or
+promotion readiness.

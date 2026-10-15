@@ -322,7 +322,20 @@ class PostgresSupportRepository:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT draft, draft_mode, requires_human_review, review_status
+                        SELECT
+                            draft,
+                            draft_mode,
+                            requires_human_review,
+                            review_status,
+                            COALESCE(
+                                generation_metadata #>> '{automation_enabled}',
+                                'false'
+                            ) = 'true',
+                            COALESCE(
+                                generation_metadata
+                                    #>> '{automation_eligibility,eligible_candidate}',
+                                'false'
+                            ) = 'true'
                         FROM support_draft_events
                         WHERE trace_id = %s
                         FOR UPDATE
@@ -338,6 +351,8 @@ class PostgresSupportRepository:
                         draft_mode,
                         requires_human_review,
                         current_status,
+                        automation_enabled,
+                        automation_eligible,
                     ) = draft_row
                     review_action = None
                     final_draft = None
@@ -364,6 +379,8 @@ class PostgresSupportRepository:
                             draft_mode=draft_mode,
                             review_status=current_status,
                             requires_human_review=requires_human_review,
+                            automation_enabled=automation_enabled,
+                            automation_eligible=automation_eligible,
                             draft=stored_draft,
                             review_action=review_action,
                             final_draft=final_draft,

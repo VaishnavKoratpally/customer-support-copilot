@@ -127,15 +127,21 @@ Qwen3:4b evidence-assessment call, validates chunk IDs and exact quotes, then
 makes a second Qwen3:4b call from only the assessed answers/facts. The second
 call must return a schema-validated JSON object containing only `draft`; both
 calls are bounded, and incomplete or invalid output fails closed. The response
-stays `pending_review`; confidence remains null; this does not enable no-review
-automation or real sending. Provider errors, invalid evidence, malformed
-structured output, and truncated output return explicit errors instead of a
-successful-looking fallback. With the flag unset/false, preview-only remains
-the default.
+stays `pending_review` by default; confidence remains null. No-review handling
+has a separate `SUPPORT_DRAFT_AUTOMATION_ENABLED` flag, which defaults to
+`false` and requires generation to be enabled. Do not enable it until the Week
+4 Day 4 evaluation/promotion gates pass. When enabled, only a narrowly eligible
+candidate can use `not_required`; the deterministic checks are conservative
+guards, not semantic proof of claim entailment or citation relevance. Provider
+errors, invalid evidence, malformed structured output, and truncated output
+return explicit errors instead of a successful-looking fallback. With
+generation unset/false, preview-only remains the default. No real messages are
+sent.
 
 The generated-path evidence assessment, final response, citations, prompt and
-schema fingerprints, model tags, timing/token metrics, and completion state
-are stored with the support-draft trace. This metadata is for local evaluation;
+schema fingerprints, model tags, final-response checks, eligibility decision,
+timing/token metrics, and completion state are stored with the support-draft
+trace. This metadata is for local evaluation;
 it is not a correctness certificate or immutable model provenance.
 
 For a generated-mode draft, when the draft response says `not_required`, or the
@@ -302,14 +308,15 @@ Week 3 ingestion uses `qwen3-embedding:0.6b` with 1024 dimensions. `POST /v1/ing
 ## Next implementation steps
 
 **Active execution plan:** [Week 4: Grounded Responses and Bounded Automation](docs/WEEK-04-EXECUTION-CHECKLIST.md).
-Days 1-2 are complete: invoice-copy instructions, invoice-field explanations,
+Days 1-3 are complete: invoice-copy instructions, invoice-field explanations,
 synthetic FAQ facts, Qwen3:4b, the [scoped routing policy](docs/adr/012-scoped-faq-pilot-and-automation-eligibility.md),
-and the gated review-first generation path are established. The
+the gated review-first generation path, and a separately disabled
+automation-eligibility gate are established. The
 [pilot contract/rubric](docs/evals/faq-pilot-contract-v1.json) and 8
 development + 8 held-out cases are approved and frozen. One development smoke
-request completed and was persisted for review; held-out evaluation and
-automation eligibility remain pending. Next is Day 3: final-response checks
-and risk routing.
+request completed and was persisted for review. Held-out evaluation and
+promotion remain pending; the automation flag remains disabled. Next is Day 4:
+end-to-end evaluation.
 
 [Week 3](docs/WEEK-03-EXECUTION-CHECKLIST.md) remains the retrieval/advisory
 checkpoint, with unfinished goals and Day 5 carry-over explicitly mapped rather

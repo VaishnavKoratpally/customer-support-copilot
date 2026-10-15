@@ -7,6 +7,10 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from app.faq_automation import (
+    evaluate_faq_automation_eligibility,
+    response_within_output_contract,
+)
 from app.evidence_assessment import (
     EvidenceAssessmentDecision,
     EvidenceAssessmentProposal,
@@ -57,10 +61,13 @@ class GeneratedCustomerReply(BaseModel):
 
     @field_validator("draft")
     @classmethod
-    def draft_must_not_be_blank(cls, value: str) -> str:
+    def draft_must_fit_customer_reply_contract(cls, value: str) -> str:
         value = value.strip()
-        if not value:
-            raise ValueError("Generated customer reply must not be blank.")
+        if not response_within_output_contract(value):
+            raise ValueError(
+                "Generated customer reply must be nonblank, at most 70 words, "
+                "and no more than three sentences."
+            )
         return value
 
 
@@ -378,6 +385,7 @@ class GeneratedDraftOrchestrator:
         assessor_model: str,
         generator_model: str,
         max_output_tokens: int,
+        automation_enabled: bool = False,
     ) -> None:
         if not assessor_model.strip() or not generator_model.strip():
             raise ValueError("Assessor and generator model names must not be blank.")
@@ -388,6 +396,7 @@ class GeneratedDraftOrchestrator:
         self._assessor_model = assessor_model
         self._generator_model = generator_model
         self._max_output_tokens = max_output_tokens
+        self._automation_enabled = automation_enabled
 
     def draft_reply(self, payload: SupportDraftRequest) -> SupportDraftResponse:
         started = time.perf_counter()
@@ -400,25 +409,47 @@ class GeneratedDraftOrchestrator:
         retrieved_chunks = retrieval.hits
 
         if not retrieved_chunks:
+            draft = (
+                "No verified support guidance was retrieved, so I cannot "
+                "provide an answer. A support agent must review this request."
+            )
+            eligibility = evaluate_faq_automation_eligibility(
+                question=payload.question,
+                risk_level=route.risk_level,
+                assessment=None,
+                retrieved_chunks=retrieved_chunks,
+                draft=draft,
+                generation_completion_verified=None,
+            )
             metadata = SupportDraftGenerationMetadata(
                 outcome="no_retrieved_evidence",
                 retrieved_chunk_count=0,
                 retrieval_top_k=self.retrieval_top_k,
+                automation_enabled=self._automation_enabled,
+                final_response_checks=eligibility.checks,
+                automation_eligibility=eligibility.eligibility,
                 total_elapsed_seconds=time.perf_counter() - started,
             )
             return self._response(
                 trace_id=trace_id,
                 route=route,
                 model_used="none_no_retrieved_evidence",
-                draft=(
-                    "No verified support guidance was retrieved, so I cannot "
-                    "provide an answer. A support agent must review this request."
-                ),
+                draft=draft,
                 citations=[],
                 assessment=None,
                 metadata=metadata,
                 escalation_reason="no_retrieved_evidence",
-                review_triggers=["generated_pilot_review_first", "no_retrieved_evidence"],
+                review_triggers=(
+                    [
+                        "generated_pilot_review_first",
+                        "no_retrieved_evidence",
+                    ]
+                    if not self._automation_enabled
+                    else [
+                        "automation_candidate_ineligible",
+                        *eligibility.eligibility.reason_codes,
+                    ]
+                ),
             )
 
         assessor_system_prompt = build_evidence_assessor_system_prompt()
@@ -471,7 +502,9 @@ class GeneratedDraftOrchestrator:
             retrieved_chunks=retrieved_chunks,
         )
         assessment_payload = decision.model_dump(mode="json")
-        review_triggers = ["generated_pilot_review_first"]
+        review_triggers = (
+            [] if self._automation_enabled else ["generated_pilot_review_first"]
+        )
         if route.risk_level == "high":
             review_triggers.append("high_risk_intent")
 
@@ -569,6 +602,30 @@ class GeneratedDraftOrchestrator:
             raise DraftGenerationError(
                 "Customer-response generation returned empty text."
             )
+        eligibility = evaluate_faq_automation_eligibility(
+            question=payload.question,
+            risk_level=route.risk_level,
+            assessment=decision,
+            retrieved_chunks=retrieved_chunks,
+            draft=draft,
+            generation_completion_verified=generator_completion_verified,
+        )
+        automatically_handled = (
+            self._automation_enabled
+            and eligibility.eligibility.eligible_candidate
+        )
+        if self._automation_enabled and not eligibility.eligibility.eligible_candidate:
+            review_triggers.extend(
+                [
+                    "automation_candidate_ineligible",
+                    *eligibility.eligibility.reason_codes,
+                ]
+            )
+            if escalation_reason == "generated_pilot_review_first":
+                escalation_reason = eligibility.eligibility.reason_codes[0]
+        if automatically_handled:
+            review_triggers = []
+            escalation_reason = None
         model_used = (
             f"assessor={self._assessor_model};generator={self._generator_model}"
             if generator_result is not None
@@ -602,6 +659,9 @@ class GeneratedDraftOrchestrator:
                 else None
             ),
             generation_completion_verified=generator_completion_verified,
+            automation_enabled=self._automation_enabled,
+            final_response_checks=eligibility.checks,
+            automation_eligibility=eligibility.eligibility,
             total_elapsed_seconds=time.perf_counter() - started,
         )
         return self._response(
@@ -614,6 +674,7 @@ class GeneratedDraftOrchestrator:
             metadata=metadata,
             escalation_reason=escalation_reason,
             review_triggers=review_triggers,
+            requires_human_review=not automatically_handled,
         )
 
     @staticmethod
@@ -626,10 +687,14 @@ class GeneratedDraftOrchestrator:
         citations: list[Citation],
         assessment: dict[str, object] | None,
         metadata: SupportDraftGenerationMetadata,
-        escalation_reason: str,
+        escalation_reason: str | None,
         review_triggers: list[str],
+        requires_human_review: bool = True,
     ) -> SupportDraftResponse:
         citation_source_ids = _unique_source_ids(citations)
+        review_status: DraftReviewStatus = (
+            "pending_review" if requires_human_review else "not_required"
+        )
         log_event(
             logger,
             "support_draft_generated",
@@ -642,8 +707,8 @@ class GeneratedDraftOrchestrator:
                 assessment.get("status") if assessment is not None else None
             ),
             retrieved_chunk_count=metadata.retrieved_chunk_count,
-            requires_human_review=True,
-            review_status="pending_review",
+            requires_human_review=requires_human_review,
+            review_status=review_status,
             escalation_reason=escalation_reason,
             review_triggers=review_triggers,
             total_elapsed_seconds=metadata.total_elapsed_seconds,
@@ -657,8 +722,8 @@ class GeneratedDraftOrchestrator:
             citations=citations,
             retrieval_confidence=None,
             answer_confidence=None,
-            requires_human_review=True,
-            review_status="pending_review",
+            requires_human_review=requires_human_review,
+            review_status=review_status,
             escalation_reason=escalation_reason,
             citation_source_ids=citation_source_ids,
             citation_contract_passed=bool(citation_source_ids),

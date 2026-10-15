@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import quote_plus
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     support_draft_generation_enabled: bool = Field(
         default=False,
         alias="SUPPORT_DRAFT_GENERATION_ENABLED",
+    )
+    support_draft_automation_enabled: bool = Field(
+        default=False,
+        alias="SUPPORT_DRAFT_AUTOMATION_ENABLED",
     )
     support_draft_generator_model: str = Field(
         default="qwen3:4b",
@@ -56,6 +60,15 @@ class Settings(BaseSettings):
     redis_db: int = Field(default=0, alias="REDIS_DB")
     redis_password: str | None = Field(default=None, alias="REDIS_PASSWORD")
     redis_idempotency_ttl_seconds: int = Field(default=900, alias="REDIS_IDEMPOTENCY_TTL_SECONDS")
+
+    @model_validator(mode="after")
+    def automation_requires_generation(self) -> "Settings":
+        if self.support_draft_automation_enabled and not self.support_draft_generation_enabled:
+            raise ValueError(
+                "SUPPORT_DRAFT_AUTOMATION_ENABLED requires "
+                "SUPPORT_DRAFT_GENERATION_ENABLED."
+            )
+        return self
 
     @property
     def postgres_dsn(self) -> str:

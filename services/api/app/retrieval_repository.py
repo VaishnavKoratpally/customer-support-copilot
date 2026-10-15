@@ -26,6 +26,7 @@ current_documents AS (
         d.policy_version,
         d.effective_date,
         d.access_scope,
+        d.checksum_sha256,
         d.embedding_model,
         d.embedding_model_digest,
         d.embedding_dimension,
@@ -54,6 +55,7 @@ class RetrievedChunk:
     section_path: str
     text: str
     cosine_distance: float
+    source_checksum_sha256: str | None = None
 
 
 class RetrievalRepository(Protocol):
@@ -132,7 +134,8 @@ class PostgresRetrievalRepository:
                             c.chunk_index,
                             c.section_path,
                             c.chunk_text,
-                            c.embedding <=> %s::vector AS cosine_distance
+                            c.embedding <=> %s::vector AS cosine_distance,
+                            d.checksum_sha256
                         FROM document_chunks c
                         INNER JOIN current_documents d ON d.id = c.document_id
                         WHERE d.access_scope = ANY(%s::text[])
@@ -167,6 +170,7 @@ class PostgresRetrievalRepository:
                 section_path=row[7],
                 text=row[8],
                 cosine_distance=float(row[9]),
+                source_checksum_sha256=row[10],
             )
             for row in rows
         )
