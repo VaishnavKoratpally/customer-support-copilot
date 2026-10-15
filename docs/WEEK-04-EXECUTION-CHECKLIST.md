@@ -162,8 +162,8 @@ Learning focus: evaluate the same final response, not disconnected components.
 
 - [x] W4-04a: Extend/reuse existing evaluation helpers to capture one API outcome per case with trace, mode, intent/risk, nullable confidence, review triggers, model, citations, generation completion/error, and latency. Keep raw reply text in local quality artifacts, not operational metrics.
 - [x] W4-04b: Score that same response for retrieval, citation attribution, semantic correctness, omitted requests/conditions, prohibited claims, and final route. Explain review counts per case; the old 20/20 baseline lacks enough telemetry to retroactively prove its individual causes.
-- [ ] W4-04c: Run development cases with a bounded change budget, then one untouched held-out run of the final candidate. Distinguish automation eligibility from actual handling while the pilot is review-first. Report automated, reviewed, clarified/abstained, and failed counts separately, with denominators and manual-review coverage.
-- [ ] W4-04d: Evaluate the promotion gates below and record a go/no-go decision. Do not present phrase matching, citation IDs, or aggregate assessor agreement as semantic proof.
+- [x] W4-04c: Run development cases with a bounded change budget, then one untouched held-out run of the final candidate. Distinguish automation eligibility from actual handling while the pilot is review-first. Report automated, reviewed, clarified/abstained, and failed counts separately, with denominators and manual-review coverage.
+- [x] W4-04d: Evaluate the promotion gates below and record a go/no-go decision. Do not present phrase matching, citation IDs, or aggregate assessor agreement as semantic proof.
 
 Promotion gates for the local pilot:
 
@@ -178,6 +178,36 @@ Promotion gates for the local pilot:
 
 Exit evidence: paired per-case results and an explicit automation decision,
 including conservative false rejects as well as unsafe false accepts.
+
+Candidate run record (2026-10-15; detailed local captures and claim ledger are
+Git-ignored under `docs/evals/results/`):
+
+- One bounded deterministic-eligibility variant was evaluated. Development
+  responses, citations, and assessor assessments were unchanged from W4-04b.
+- Development: 8/8 captured; 3/4 expected-positive cases eligible, 0/4
+  false accepts. Actual handling was 0/8 automated and 8/8 pending review;
+  response outcomes were 0 clarified, 2 abstained, and 0 failed (abstentions
+  can still be pending review). Manual case annotations cover 8/8: six
+  user-confirmed and two assistant-provisional.
+- Held-out: one run, 6/8 captured; `faq-heldout-003` and
+  `faq-heldout-005` returned HTTP 502 during evidence assessment. Do not rerun
+  or tune against this split. Of three captured expected-positive cases, 0/3
+  were eligible; one additional expected-positive case failed capture.
+  Actual handling was 0/8 automated and 6/8 pending review; response outcomes
+  were 0 clarified, 1 abstained, and 2 failed. All six returned cases
+  received user case-level review (6/6); the two failed cases had no response
+  to review.
+- W4-04b development claim metrics remain applicable because the same drafts,
+  citations, and assessments were recaptured: retrieval fact recall 6/6,
+  source recall 4/4, groundedness 17/18 (94.4%), citation correctness
+  16/18 (88.9%). The held-out assistant-provisional claim audit scored
+  groundedness 12/15 (80%) and citation correctness 11/15 (73.3%); see the
+  local review ledger for per-claim mappings and user case judgments.
+- **Promotion decision: NO-GO.** Development citation correctness is below
+  the 95% target; held-out capture had two errors and its provisional claim
+  scores are below target. Latency gates remain unmeasured (W4-05). Draft
+  automation remains disabled. No candidate changes were made after the
+  held-out run.
 
 ## Day 5: Bounded automation rollout and timing
 

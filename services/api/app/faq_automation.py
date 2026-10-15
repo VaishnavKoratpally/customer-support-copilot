@@ -121,6 +121,16 @@ def evaluate_faq_automation_eligibility(
         for quote in citations
         if quote.chunk_id in chunk_by_id
     }
+    requested_information_evidence_chunks = (
+        {
+            quote.chunk_id: chunk_by_id[quote.chunk_id]
+            for item in assessment.requested_information
+            for quote in item.evidence
+            if quote.chunk_id in chunk_by_id
+        }
+        if assessment is not None
+        else {}
+    )
     evidence_provenance_valid = _evidence_provenance_is_valid(
         assessment=assessment,
         chunk_by_id=chunk_by_id,
@@ -145,9 +155,12 @@ def evaluate_faq_automation_eligibility(
         if family == "invoice_field_explanations"
     }
     evidence_sections_match = (
-        bool(evidence_chunks)
+        bool(requested_information_evidence_chunks)
         and bool(allowed_sections)
-        and all(chunk.section_path in allowed_sections for chunk in evidence_chunks.values())
+        and all(
+            chunk.section_path in allowed_sections
+            for chunk in requested_information_evidence_chunks.values()
+        )
     )
     assessment_is_sufficient = (
         assessment is not None
@@ -236,7 +249,12 @@ def _requested_topics(
     normalized = " ".join(question.casefold().split())
     topics: set[str] = set()
     if "invoice_copy_instructions" in families:
-        if re.search(r"\b(?:download|pdf|copies?|where do i find)\b", normalized):
+        if re.search(
+            r"\b(?:how\s+(?:to\s+|(?:do|can|could)\s+(?:i|we|you)\s+)"
+            r"(?:download|find|open|access)|steps?|instructions?|"
+            r"where\s+do\s+(?:i|we)\s+find)\b",
+            normalized,
+        ):
             topics.add("copy_steps")
         if re.search(
             r"\b(?:roles?|owners?|members?|billing admins?|authorized|permissions?)\b",
@@ -256,7 +274,9 @@ def _requested_topics(
 def _topic_is_assessed(topic: str, labels: Sequence[str]) -> bool:
     label_patterns = {
         "copy_steps": re.compile(r"\b(?:download|pdf|copy|navigation|path)\b"),
-        "copy_roles": re.compile(r"\b(?:role|owner|billing admin|member|permission)\b"),
+        "copy_roles": re.compile(
+            r"\b(?:roles?|owners?|billing admins?|members?|permissions?)\b"
+        ),
         "field_number": re.compile(
             r"\b(?:invoice number|account number|payment|proof|paid)\b"
         ),

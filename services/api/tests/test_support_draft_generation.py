@@ -408,6 +408,124 @@ class GeneratedSupportDraftTests(unittest.TestCase):
                 self.assertFalse(response.requires_human_review)
                 self.assertEqual(response.review_status, "not_required")
 
+    def test_role_question_does_not_require_download_steps(self):
+        question = (
+            "Which workspace roles can download issued invoices? "
+            "Can a regular member do it?"
+        )
+        member_quote = "Regular workspace members cannot download invoices."
+        chunk = make_chunk(f"{ROLE_QUOTE}\n\n{member_quote}")
+        assessment = EvidenceAssessmentProposal(
+            requested_information=[
+                RequestedInformationAssessment(
+                    requested_information="workspace roles that can download issued invoices",
+                    finding="supported",
+                    answer=ROLE_QUOTE,
+                    evidence=[
+                        EvidenceQuote(chunk_id=chunk.chunk_id, quote=ROLE_QUOTE)
+                    ],
+                ),
+                RequestedInformationAssessment(
+                    requested_information="can regular members download issued invoices",
+                    finding="supported",
+                    answer=member_quote,
+                    evidence=[
+                        EvidenceQuote(chunk_id=chunk.chunk_id, quote=member_quote)
+                    ],
+                ),
+            ],
+            supporting_facts=[],
+        )
+        provider = FakeGenerationProvider(
+            assessment=assessment,
+            draft_text=f"{ROLE_QUOTE} {member_quote}",
+        )
+        orchestrator, _ = self.make_orchestrator(
+            provider,
+            hits=(chunk,),
+            automation_enabled=True,
+        )
+
+        response = orchestrator.draft_reply(SupportDraftRequest(question=question))
+
+        self.assertTrue(
+            response.generation_metadata.final_response_checks.request_topics_covered
+        )
+        self.assertTrue(
+            response.generation_metadata.final_response_checks.required_conditions_preserved
+        )
+        self.assertTrue(
+            response.generation_metadata.automation_eligibility.eligible_candidate
+        )
+
+    def test_section_match_ignores_extra_supporting_facts_but_checks_source(self):
+        question = "How do I download a PDF copy of an issued invoice?"
+        field_quote = "An invoice number identifies the invoice document."
+        requested_chunk = make_chunk(STEPS_QUOTE)
+
+        for checksum, source_is_approved in ((None, True), ("b" * 64, False)):
+            with self.subTest(source_is_approved=source_is_approved):
+                field_chunk = make_chunk(
+                    field_quote,
+                    section_path="Invoice fields",
+                    source_checksum_sha256=checksum,
+                )
+                assessment = EvidenceAssessmentProposal(
+                    requested_information=[
+                        RequestedInformationAssessment(
+                            requested_information="invoice download steps",
+                            finding="supported",
+                            answer=STEPS_QUOTE,
+                            evidence=[
+                                EvidenceQuote(
+                                    chunk_id=requested_chunk.chunk_id,
+                                    quote=STEPS_QUOTE,
+                                )
+                            ],
+                        )
+                    ],
+                    supporting_facts=[
+                        SupportingFactAssessment(
+                            claim=field_quote,
+                            finding="supported",
+                            evidence=[
+                                EvidenceQuote(
+                                    chunk_id=field_chunk.chunk_id,
+                                    quote=field_quote,
+                                )
+                            ],
+                        )
+                    ],
+                )
+                provider = FakeGenerationProvider(assessment=assessment)
+                orchestrator, _ = self.make_orchestrator(
+                    provider,
+                    hits=(requested_chunk, field_chunk),
+                    automation_enabled=True,
+                )
+
+                response = orchestrator.draft_reply(
+                    SupportDraftRequest(question=question)
+                )
+                checks = response.generation_metadata.final_response_checks
+                eligibility = response.generation_metadata.automation_eligibility
+
+                self.assertTrue(checks.evidence_sections_match_request)
+                self.assertTrue(checks.evidence_provenance_valid)
+                self.assertEqual(
+                    checks.source_version_and_content_approved,
+                    source_is_approved,
+                )
+                self.assertEqual(
+                    eligibility.eligible_candidate,
+                    source_is_approved,
+                )
+                if not source_is_approved:
+                    self.assertIn(
+                        "source_version_or_content_not_approved",
+                        eligibility.reason_codes,
+                    )
+
     def test_final_checks_block_out_of_scope_unapproved_or_unsafe_candidates(self):
         unapproved_checksum = make_chunk(
             f"{ROLE_QUOTE}\n\n{STEPS_QUOTE}",
@@ -686,6 +804,32 @@ class GeneratedSupportDraftTests(unittest.TestCase):
                 )
             ],
             supporting_facts=[],
+        )
+        provider = FakeGenerationProvider(assessment=invalid)
+        orchestrator, _ = self.make_orchestrator(provider)
+
+        with self.assertRaisesRegex(DraftGenerationError, "assessment failed"):
+            orchestrator.draft_reply(self.payload)
+
+        self.assertEqual(len(provider.structured_calls), 1)
+        self.assertEqual(provider.generation_calls, [])
+
+    def test_invalid_supporting_fact_quote_fails_before_generation(self):
+        valid_proposal = supported_invoice_proposal(self.chunk)
+        invalid = EvidenceAssessmentProposal(
+            requested_information=valid_proposal.requested_information,
+            supporting_facts=[
+                SupportingFactAssessment(
+                    claim="An invoice number identifies the invoice document.",
+                    finding="supported",
+                    evidence=[
+                        EvidenceQuote(
+                            chunk_id=self.chunk.chunk_id,
+                            quote="This quote is not in the source.",
+                        )
+                    ],
+                )
+            ],
         )
         provider = FakeGenerationProvider(assessment=invalid)
         orchestrator, _ = self.make_orchestrator(provider)
