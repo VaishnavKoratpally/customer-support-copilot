@@ -40,6 +40,5 @@ class EvidenceAssessorPromptTests(unittest.TestCase):
             prompt,
         )
 
-
 if __name__ == "__main__":
     unittest.main()

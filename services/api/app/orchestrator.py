@@ -402,10 +402,12 @@ class GeneratedDraftOrchestrator:
         started = time.perf_counter()
         trace_id = str(uuid4())
         route = route_question(payload.question)
+        retrieval_started = time.perf_counter()
         retrieval = self._retriever.retrieve(
             payload.question,
             top_k=self.retrieval_top_k,
         )
+        retrieval_elapsed = time.perf_counter() - retrieval_started
         retrieved_chunks = retrieval.hits
 
         if not retrieved_chunks:
@@ -425,6 +427,7 @@ class GeneratedDraftOrchestrator:
                 outcome="no_retrieved_evidence",
                 retrieved_chunk_count=0,
                 retrieval_top_k=self.retrieval_top_k,
+                retrieval_elapsed_seconds=retrieval_elapsed,
                 automation_enabled=self._automation_enabled,
                 final_response_checks=eligibility.checks,
                 automation_eligibility=eligibility.eligibility,
@@ -635,7 +638,9 @@ class GeneratedDraftOrchestrator:
             outcome=outcome,
             retrieved_chunk_count=len(retrieved_chunks),
             retrieval_top_k=self.retrieval_top_k,
+            retrieval_elapsed_seconds=retrieval_elapsed,
             assessor_model=self._assessor_model,
+            assessor_max_output_tokens=self.assessor_max_output_tokens,
             assessor_system_prompt_sha256=_sha256_text(assessor_system_prompt),
             assessor_user_prompt_sha256=_sha256_text(assessor_user_prompt),
             assessor_schema_sha256=_sha256_schema(

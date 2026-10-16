@@ -137,6 +137,60 @@ must also be available. The default split is `development`. Use
 complete. Review the saved per-case responses manually against the frozen
 semantic rubric; capture success is not a quality pass.
 
+### Sequential FAQ pilot latency profile
+
+The latency profile is separate from the one-pass capture above. It is fixed
+to the frozen development split: one cold request for `faq-dev-003`, followed
+by 20 sequential warm requests cycling through the development cases. It has
+no held-out option, records full responses and per-stage timings/tokens, and
+does not score or tune them. The profile requires generation enabled and
+automation disabled; every successful response must remain `pending_review`.
+Raw requests and drafts are written only to the Git-ignored results folder.
+
+The API must be rebuilt after changing the timing metadata. From the repository
+root, start it in review-first mode, then restart Ollama to unload resident
+models. The Compose API service explicitly maps these shell overrides over
+`.env`; without that mapping, host PowerShell variables are not automatically
+passed into the API container. Both flags remain false by default.
+
+```powershell
+$env:SUPPORT_DRAFT_GENERATION_ENABLED = "true"
+$env:SUPPORT_DRAFT_AUTOMATION_ENABLED = "false"
+docker compose up -d --build api
+docker compose restart ollama
+```
+
+The runner verifies that Ollama's `/api/ps` reports no resident models before
+it sends the cold request. Do not send another model request between the
+restart and profile command. Collect the current machine state; update the
+power-state string if AC/battery or battery-saver status differs:
+
+```powershell
+$hardwareState = (nvidia-smi --query-gpu=name,driver_version,pstate,utilization.gpu,clocks.current.graphics,clocks.current.memory,power.draw,temperature.gpu --format=csv,noheader,nounits | Out-String).Trim()
+powercfg /getactivescheme
+$powerState = Read-Host "Enter current AC/battery status, battery-saver status, and the active plan shown above"
+
+docker compose run --rm --no-deps -T `
+  --volume ".\scripts:/evaluation/scripts:ro" `
+  --volume ".\docs\evals:/evaluation/docs/evals" `
+  --env PYTHONPATH=/app `
+  api python /evaluation/scripts/profile_faq_pilot_latency.py `
+    --api-base-url http://host.docker.internal:8000 `
+    --ollama-base-url http://ollama:11434 `
+    --hardware-state "$hardwareState" `
+    --power-state "$powerState"
+```
+
+The artifact reports the cold request separately, warm and combined p50/p95
+(median p50 and linearly interpolated p95), request/error counts, model and
+prompt hashes, output-token budgets, retrieval/assessor/generator timings,
+Ollama token and load metrics, routing mix, and review-first state. Error
+responses remain in the latency distribution and are reported separately.
+The profile does not make a semantic-quality claim; review the captured
+responses separately if they are to be used as quality evidence. A target miss
+blocks promotion, and the existing W4-04 NO-GO remains in force regardless of
+latency.
+
 ## Claim-level evidence assessor pilot
 
 Run the five-case pilot from the repository root in PowerShell:

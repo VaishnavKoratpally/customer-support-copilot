@@ -90,7 +90,9 @@ class SupportDraftGenerationMetadata(BaseModel):
     ]
     retrieved_chunk_count: int = Field(ge=0)
     retrieval_top_k: int = Field(ge=1, le=10)
+    retrieval_elapsed_seconds: float | None = Field(default=None, ge=0)
     assessor_model: str | None = None
+    assessor_max_output_tokens: int | None = Field(default=None, ge=1)
     assessor_system_prompt_sha256: str | None = None
     assessor_user_prompt_sha256: str | None = None
     assessor_schema_sha256: str | None = None

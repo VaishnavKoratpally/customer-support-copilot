@@ -70,6 +70,9 @@ services:
     build:
       context: ./services/api
     restart: unless-stopped
+    environment:
+      SUPPORT_DRAFT_GENERATION_ENABLED: ${SUPPORT_DRAFT_GENERATION_ENABLED:-false}
+      SUPPORT_DRAFT_AUTOMATION_ENABLED: ${SUPPORT_DRAFT_AUTOMATION_ENABLED:-false}
     env_file:
       - .env
     ports:
@@ -92,4 +95,3 @@ volumes:
   redis_data:
   ollama_data:
   pgadmin_data:
-

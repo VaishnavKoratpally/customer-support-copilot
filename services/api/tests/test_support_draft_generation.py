@@ -259,6 +259,34 @@ class GeneratedSupportDraftTests(unittest.TestCase):
             provider.generation_calls[0]["system_prompt"],
         )
         self.assertIn(
+            "related_but_not_supported",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "no_relevant_evidence",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "the information provided does not specify that item",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "the full documentation lacks guidance",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "every applicable condition, qualifier, and limitation",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "exact customer-facing URL appears in supported evidence",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
+            "internal source IDs",
+            provider.generation_calls[0]["system_prompt"],
+        )
+        self.assertIn(
             "Do not explain the task",
             provider.generation_calls[0]["system_prompt"],
         )
@@ -279,6 +307,15 @@ class GeneratedSupportDraftTests(unittest.TestCase):
         self.assertIsNone(response.answer_confidence)
         self.assertEqual(response.review_triggers, ["generated_pilot_review_first"])
         self.assertEqual(response.generation_metadata.outcome, "generated")
+        self.assertIsNotNone(response.generation_metadata.retrieval_elapsed_seconds)
+        self.assertGreaterEqual(
+            response.generation_metadata.retrieval_elapsed_seconds,
+            0,
+        )
+        self.assertEqual(
+            response.generation_metadata.assessor_max_output_tokens,
+            1024,
+        )
         self.assertTrue(response.generation_metadata.generation_completion_verified)
         self.assertFalse(response.generation_metadata.automation_enabled)
         self.assertTrue(
@@ -620,6 +657,10 @@ class GeneratedSupportDraftTests(unittest.TestCase):
 
                 self.assertTrue(response.requires_human_review)
                 self.assertEqual(response.review_status, "pending_review")
+                self.assertFalse(
+                    response.generation_metadata.automation_eligibility.eligible_candidate
+                )
+                self.assertEqual(response.draft, provider.draft_text)
                 self.assertIn(
                     reason,
                     response.generation_metadata.automation_eligibility.reason_codes,
@@ -914,6 +955,13 @@ class GeneratedSupportDraftTests(unittest.TestCase):
                 ):
                     orchestrator.draft_reply(self.payload)
 
+    @patch.dict(
+        "os.environ",
+        {
+            "SUPPORT_DRAFT_GENERATION_ENABLED": "false",
+            "SUPPORT_DRAFT_AUTOMATION_ENABLED": "false",
+        },
+    )
     def test_flag_off_selects_preview_and_enabled_flag_selects_generator(self):
         retriever = Mock()
         provider = Mock()

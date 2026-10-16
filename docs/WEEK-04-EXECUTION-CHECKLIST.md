@@ -1,7 +1,7 @@
 # Week 4 Execution Checklist: Grounded Responses and Bounded Automation
 
 Date: 2026-10-14
-Status: W4-01 through W4-03 complete; W4-04a complete; W4-04b first-pass scored (provisional); W4-04c/d pending; W4-05 pending. Generated replies remain opt-in and review-first by default; automation remains disabled.
+Status: W4-01 through W4-03 complete; W4-04 decision NO-GO; W4-05a/b complete with latency NO-GO; W4-05c blocked pending promotion gates. Generated replies remain opt-in and review-first by default; automation remains disabled.
 Baseline checkpoint: `5a50e1a` (`feat(review): persist advisory evidence assessments and feedback`).
 
 ## Objective
@@ -53,8 +53,8 @@ mandatory step before every response.
 | W4-01 | Scope, baseline, and pilot contract | Complete | None |
 | W4-02 | Grounded response generation | Complete | W4-01 |
 | W4-03 | Final-response checks and risk routing | Complete | W4-01, W4-02 |
-| W4-04 | End-to-end evaluation | Pending | W4-02, W4-03 |
-| W4-05 | Bounded automation rollout and timing | Pending | W4-04 |
+| W4-04 | End-to-end evaluation | Complete (NO-GO) | W4-02, W4-03 |
+| W4-05 | Bounded automation rollout and timing | W4-05a/b complete; W4-05c blocked | W4-04 |
 
 ## Day 1: Scope and pilot contract
 
@@ -214,14 +214,122 @@ Git-ignored under `docs/evals/results/`):
 ID: **W4-05**
 Learning focus: measured automation value and latency, not a forced review quota.
 
-- [ ] W4-05a: Capture one first-request cold/load profile and a bounded sequential warm run of at least 20 requests across approved development cases. Record sample count, model/prompt/output budget, hardware/power state, token counts, component times, client wall time, p50/p95, routing, and quality.
-- [ ] W4-05b: Compare with default-path targets p50 <= 4s / p95 <= 8s. Report warm and combined percentiles, the cold request separately, and the observed cold/warm mix; this is a local experiment, not a load test or an SLO-compliance claim. Any target miss blocks promotion unless the learner explicitly approves a documented target/scope change.
+- [x] W4-05a: Capture one first-request cold/load profile and a bounded sequential warm run of at least 20 requests across approved development cases. Record sample count, model/prompt/output budget, hardware/power state, token counts, component times, client wall time, p50/p95, routing, and quality.
+- [x] W4-05b: Compare with default-path targets p50 <= 4s / p95 <= 8s. Report warm and combined percentiles, the cold request separately, and the observed cold/warm mix; this is a local experiment, not a load test or an SLO-compliance claim. Any target miss blocks promotion unless the learner explicitly approves a documented target/scope change.
 - [ ] W4-05c: If all promotion gates pass, explicitly enable only the approved low-risk automatic pilot and test an eligible FAQ plus high-risk, unsupported, and flag-off controls. Otherwise keep real generated replies review-first and record the blocker and one bounded next decision. Verify rollback restores preview/manual handling.
 
 Exit evidence: real grounded responses with demonstrated conditional no-review
 handling, or an explicitly blocked automation goal with working review-first
 generation. Do not call automation complete in the no-go outcome. Delivery
 remains the local hash-only simulation; no real messages are sent.
+
+W4-05 instrumentation is prepared. The first local attempt on 2026-10-16
+stopped after one request because the API returned `preview_only`; Ollama had
+no resident model before the request, no model load was observed, and no warm
+requests ran. Artifact:
+`docs/evals/results/faq-pilot-latency-profile-20261016T185701Z.json`.
+This is a setup failure, not a latency measurement or a target miss. The cause
+was that shell overrides for the generation/review flags were not mapped into
+the API container; Compose now passes them explicitly while retaining
+default-off behavior. The profiler also reports missing latency samples as
+not assessed rather than as a target miss. A complete development-only profile
+followed; its results are recorded separately below.
+
+Successful W4-05a/b profile (2026-10-16; full per-request data is in the
+Git-ignored artifact
+`docs/evals/results/faq-pilot-latency-profile-20261016T190252Z.json`):
+
+- Cold `faq-dev-003`: 1/1 captured, 9.133 s client wall time; Ollama had no
+  resident model beforehand and model loading was observed. The assessor call
+  took 6.751 s and loaded the model in 1.800 s; retrieval took 1.734 s and
+  response generation 0.630 s.
+- Warm: 20/20 captured with no API errors; p50 5.500 s (target <= 4 s, miss)
+  and p95 6.396 s (target <= 8 s, pass). Combined cold + warm: 21/21 captured;
+  p50 5.626 s (miss) and p95 6.459 s (pass). Cold latency is reported
+  separately, not folded into the warm sample.
+- Configuration: `qwen3:4b` assessor (1,024 output-token budget) and generator
+  (256-token budget); generation on, automation off. All 21 stayed
+  `pending_review`; 17 outcomes were generated and 4 were `no_relevant_evidence`.
+  Routing was 19 low-risk and 2 high-risk; 10 were eligibility candidates and
+  11 were not. Full per-request prompt hashes, tokens, retrieval/assessor/
+  generator timings, and responses are in the artifact.
+- Hardware/power were recorded as an NVIDIA RTX PRO 3000 Blackwell Generation
+  Laptop GPU, driver 573.49, AC connected, battery saver off, performance
+  mode. The pre-run GPU snapshot reported P8, 28% utilization, 375/405 MHz
+  graphics/memory clocks, 11.80 W, and 48 C. This is a point-in-time snapshot,
+  not synchronized telemetry during inference; it does not establish a
+  power-management cause.
+- The profile captured responses but did not semantically rescore them;
+  quality scoring is explicitly `not_performed`. The existing W4-04 quality
+  NO-GO remains in force.
+
+**Latency gate: NO-GO** because warm and combined p50 exceed 4 s, even though
+both p95 values are below 8 s. Keep automation disabled and generated replies
+review-first. W4-05c rollout is not eligible while W4-04 is NO-GO. The next
+An offline inspection of the cold request and first three warm requests found
+retrieval/assessor/generator times of 1.734/6.751/0.630 s cold; warm retrieval
+was 0.033-0.057 s, assessor 4.647-5.450 s, and generator 0.653-0.954 s. The
+full 20-request offline breakdown confirmed:
+
+- Retrieval median 42.45 ms (range 27.4-86 ms).
+- The measured retrieval stage includes both query embedding and pgvector
+  search. Cold retrieval was 1.734 s versus a 42.45 ms warm median; the profile
+  does not separately time embedding and database search, so the cold overhead
+  cannot be assigned to either component.
+- Across 16 generated warm replies, assessor time median 4.895 s (range
+  4.08-5.45 s), with median 475 generated tokens (range 400-529).
+- The four `no_relevant_evidence` assessor calls took 0.73-0.91 s and produced
+  56-60 tokens; no response generator call ran for those cases.
+- Across the 16 generator calls, time median 0.70 s (range 0.58-1.04 s) and
+  output-token median 45.5 (range 31-66).
+
+This identifies assessor generation as the dominant warm-path cost. The
+assessor's configured output cap is 1,024 tokens, but observed generated
+assessments were 400-529 tokens; lowering the cap to 512 could truncate
+responses, while a higher cap alone would not reduce normal output length.
+The learner approved one bounded development-only prompt variant: prefer the
+shortest contiguous verbatim evidence quote that fully supports each claim,
+while retaining qualifiers, conditions, dates, and exceptions (use the full
+sentence when a shorter span would be ambiguous). The supporting-facts rule,
+schema, deterministic validation, model, retrieval settings, and token budgets
+remain unchanged.
+
+Compact-quote candidate profile (2026-10-16; Git-ignored artifact
+`docs/evals/results/faq-pilot-latency-profile-20261016T203321Z.json`):
+
+- The changed assessor prompt hash confirms the variant ran; model, schema,
+  token budgets, warm request order, and review-first settings match baseline.
+  All 21 requests were captured without API errors.
+- Cold `faq-dev-003`: 9.087 s, with model load verified. Warm p50/p95 were
+  5.534/6.421 s; combined p50/p95 were 5.622/6.561 s. The p50 target remains
+  missed and p95 remains within target.
+- Against the prior baseline, warm p50 was 34.76 ms slower and warm p95 was
+  25.26 ms slower; combined p50 was 4.70 ms faster. These small differences
+  do not demonstrate a latency improvement. The pre-run GPU snapshots also
+  differed and were not continuous telemetry.
+- Routing across all 21 samples changed from 17 generated / 4
+  `no_relevant_evidence` to 15 generated / 6 `no_relevant_evidence`. The
+  profiler did not automatically score semantic quality. The learner manually
+  reviewed the eight unique development cases: `faq-dev-001`, `002`, and `003`
+  passed; `faq-dev-004` retained its prior judgment (supported definition,
+  unattributed extra claim, not unsafe); `faq-dev-005` passed as a safe
+  human-review abstention; `faq-dev-006` passed as a safe abstention; and
+  `faq-dev-007` retained its prior safe-but-partially-helpful UX judgment.
+  `faq-dev-008` was rejected: the candidate introduced a placeholder link
+  containing an internal FAQ ID and omitted required access conditions.
+
+**Compact-quote variant rejected.** The experimental instruction has been
+removed and the baseline assessor prompt restored. The candidate did not meet
+the p50 target and introduced a reviewed quality regression. Keep automation
+disabled and do not use the already-seen held-out set. The original baseline
+latency NO-GO remains; any future promotion still requires all quality/latency
+gates and a fresh independent held-out set.
+
+Learner decision (2026-10-16): retain the p50 <= 4 s target and stop latency
+tuning for now. Advance only with local, review-first development; generated
+drafts remain pending human review, automation stays disabled, and W4-05c
+remains blocked by the W4-04 quality NO-GO and W4-05 latency miss. This does
+not authorize real-customer use or bypass either gate.
 
 ## Progress evidence
 
@@ -246,6 +354,7 @@ remains the local hash-only simulation; no real messages are sent.
 | 2026-10-15 | W4-04b (`faq-dev-008` provisional review) | At the user's request, the assistant rated the answer partial: it safely refuses to grant billing-admin access, but gives download steps without preserving the required issued-invoice, authorized-workspace, and owner/admin scope. Runtime handling remains `pending_review` with human review required. This is a provisional assistant assessment, not a human gold label. |
 | 2026-10-15 | W4-04b (baseline retrieval/routing metadata) | The API confirms citations are a subset of the top-3 retrieval hits. All required facts for the 4 eligible development cases appear in the captured citations: fact recall@3 `6/6`; required-source recall `4/4`. Only `faq-dev-003` was an eligible candidate (`1/4` expected positives); `faq-dev-001`, `002`, and `004` were blocked by deterministic checks. Automation was off and actual handling was `pending_review` for all 8. Six outcomes were generated with verified completion; two were no-relevant-evidence fallbacks. At this point, claim-level aggregation had not yet been completed; see the subsequent first-pass scoring entry. Promotion assessment remains pending. |
 | 2026-10-15 | W4-04b (first-pass development scoring complete) | Created local ignored claim ledger `docs/evals/results/faq-pilot-development-claim-review-v1.json`, using atomic propositions mapped to returned citation indices. Retrieval fact recall@3 is `6/6`; required-source recall is `4/4`. Across 18 claims in 6 generated replies, provisional groundedness is `17/18` (94.4%, above 0.90) and citation correctness is `16/18` (88.9%, below the 0.95 gate); the other 2 cases were no-relevant-evidence fallbacks and are unscored for those metrics. Actual handling remained review-first for all 8; only `faq-dev-003` was automation-eligible among 4 expected positives. User judgments and two assistant-provisional findings are distinguished in the ledger. This is not a promotion pass or final automation decision; W4-04c tuning and W4-04d gate decision remain. Held-out untouched. |
+| 2026-10-16 | W4-05a/b (complete; latency NO-GO) | One verified cold `faq-dev-003` request plus 20 sequential warm development requests; 21/21 captured. Cold client wall 9.133 s. Warm p50/p95 5.500/6.396 s; combined p50/p95 5.626/6.459 s. p50 target <= 4 s missed in both groups; p95 <= 8 s met. `qwen3:4b` assessor/generator, 1,024/256 output-token budgets; generation on, automation off; all 21 pending review. Full warm-stage breakdown: retrieval p50 42.45 ms; generated-response assessor p50 4.895 s/475 tokens; generator p50 0.70 s/45.5 tokens. Per-request metrics, prompt hashes, and captures are in Git-ignored artifact `docs/evals/results/faq-pilot-latency-profile-20261016T190252Z.json`. Semantic scoring was not performed. Hardware state is a pre-run snapshot, not load-synchronized telemetry. No target change, tuning, or held-out calls. W4-04 remains NO-GO, so W4-05c is ineligible and automation remains disabled. |
 
 Append future milestone evidence here and update the state table/checkboxes;
 do not replace failed measurements with later successful ones without context.
@@ -259,6 +368,36 @@ do not replace failed measurements with later successful ones without context.
 | UX-01 | Reviewer UI and broader feedback tooling | The generated-response contract and escalation workflow are stable; use existing APIs for this pilot. |
 | OPS-01 | Auth/tenant authorization, real sending/outbox, recovery queues, durable metrics, load testing | Before public deployment/real-customer use, or when the corresponding operational requirement is explicitly scheduled. None is implemented or certified by this week. |
 | AGENT-01 | LangGraph/MCP, agent tools, extra vector databases or domains | A demonstrated requirement cannot be met cleanly by the current linear local pipeline. |
+
+## W4-05 follow-on: development-only quality remediation
+
+The learner approved a bounded customer-reply prompt experiment after rejecting
+the compact-quote candidate. Keep the 4 s p50 target unchanged, automation
+disabled, all generated drafts pending human review, and held-out data untouched.
+
+- The reply prompt now explicitly constrains unsupported multi-part answers,
+  documentation-wide absence claims, preservation of procedural conditions,
+  permission claims, invented URLs, and internal source IDs.
+- Regression assertions cover those prompt requirements and verify that drafts
+  failing final checks remain visible for human edit/rejection while staying
+  ineligible for automation.
+- This is a quality candidate, not a quality or latency pass. The user ran
+  `tests.test_support_draft_generation`: 19 tests, all listed as `ok`, with no
+  failure in the pasted output. The development recapture returned 8/8 cases;
+  scoring was not performed. Git-ignored artifact:
+  `docs/evals/results/faq-pilot-development-capture-20261016T210543Z.json`.
+  The learner confirmed `faq-dev-004` as a content pass and `faq-dev-008` as a
+  content fail. Case 004 no longer makes a documentation-wide absence claim.
+  Case 008 still gives steps marked `related_but_not_supported` and omits
+  required access conditions (`required_conditions_preserved=false`). The
+  other six cases have not been manually reviewed, so this candidate is not a
+  quality pass. Do not run a latency profile as part of this remediation or
+  change the p50 target. Any latency change remains unmeasured.
+- The learner recorded a human edit for `faq-dev-008` through
+  `POST /v1/support/review` (reviewer `local-reviewer`, trace
+  `998a6ed1-cc75-48a7-80f3-91c6232ddab4`). The API returned
+  `review_status=edited` and `requires_follow_up=false`. No simulated delivery
+  was requested or performed.
 
 ## Stop rules
 
