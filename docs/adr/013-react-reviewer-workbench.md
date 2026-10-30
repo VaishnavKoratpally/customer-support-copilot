@@ -12,6 +12,8 @@ review-first rather than introduce a second product or resume model tuning.
 The learner approved this design and delegated implementation of W5-01 only.
 Later question, evidence, and review integrations remain separate milestones.
 Design approval does not establish that implementation or validation is done.
+On 2026-10-30 the learner separately delegated W5-02 question-to-draft
+integration. Evidence details and review actions remain deferred.
 
 ## Decision
 
@@ -74,6 +76,24 @@ Do not call simulated delivery or any customer-sending integration.
 
 W5-01 provides only the accessible shell. Its action buttons stay disabled
 with an explanation; it performs no support API requests.
+
+### W5-02 implementation clarification
+
+- The parent owns a single request-state object and the response's submitted
+  question. Keep the question and submit control disabled in flight; an
+  immediate ref guard also blocks duplicate events before the next render.
+- Editing the question after a response does not relabel that response. Starting
+  a new request clears the old result and trace. Review actions remain disabled.
+- A small fetch helper validates input and the core/displayed response fields,
+  reports HTTP/network/JSON errors, and preserves optional/unknown metadata
+  without inventing a passing check. This is not a duplicate backend policy
+  engine or a complete client implementation of every response schema.
+- Do not add a fixed client inference deadline or cancellation control in this
+  slice. Await the response/network outcome, preserve input on error, and warn
+  that an unconfirmed response may still correspond to a saved draft. Reloading
+  is not guaranteed to cancel backend work or retain browser state.
+- Use Node's built-in test runner for the request helper, existing lint/build
+  checks, and controlled browser checks. No extra dependency is required.
 
 ## Options Considered
 

@@ -74,6 +74,30 @@ footer {
   background: #f7f9fc;
 }
 
+.draft-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.content-notice {
+  padding: 12px;
+  border-left: 3px solid #375f9d;
+  background: #eaf0fb;
+}
+
+.error-state {
+  padding: 12px 16px;
+  border: 1px solid #a43535;
+  border-radius: 6px;
+  background: #fff3f3;
+  color: #782525;
+  overflow-wrap: anywhere;
+}
+
+.error-state p {
+  margin: 8px 0;
+}
+
 .metadata {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

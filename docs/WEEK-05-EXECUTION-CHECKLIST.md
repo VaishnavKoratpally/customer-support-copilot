@@ -1,8 +1,8 @@
 # Week 5: Local React Human-Review Workbench
 
 Date: 2026-10-16
-Updated: 2026-10-26
-Status: W5-00 design approved and recorded in ADR-013; learner walkthrough pending. W5-01 shell implemented and validated. W5-02 onward is not started or authorized under this slice.
+Updated: 2026-10-30
+Status: W5-01 and W5-02 implemented and validated; W5-02 browser checks used controlled synthetic API responses. Learner walkthrough and live-stack browser exercise remain pending. W5-03 onward is not started or authorized under this slice.
 
 ## Why this milestone
 
@@ -69,6 +69,9 @@ Approved development and serving boundary:
 The learner approved this design and delegated W5-01 only on 2026-10-26.
 [ADR-013](./adr/013-react-reviewer-workbench.md) records the contract,
 state ownership, failure behavior, tradeoffs, and revisit triggers.
+On 2026-10-30, after committing the shell, the learner separately delegated
+W5-02 implementation, validation, and explanation. This does not authorize
+W5-03/W5-04 or mark the learner walkthrough complete.
 
 The request flow remains:
 
@@ -212,16 +215,23 @@ plan.
 
 ### W5-02: Implement the question-to-draft flow
 
-- [ ] Add a labeled controlled question form and explicit React state for
+- [x] Add a labeled controlled question form and explicit React state for
   initial, submitting, ready, and error conditions.
-- [ ] Call the existing `POST /v1/support/draft` endpoint using `fetch` from an
+- [x] Call the existing `POST /v1/support/draft` endpoint using `fetch` from an
   explicit submit handler; handle non-2xx responses as errors.
-- [ ] Disable conflicting submissions while a request is active and bind
-  subsequent review actions to the returned draft's trace ID.
-- [ ] Render the returned draft and status without assuming optional fields
+- [x] Disable conflicting submissions while a request is active and retain
+  the returned trace with its submitted question. The disabled review panel
+  reflects that active trace; actual review actions remain W5-04 work.
+- [x] Render the returned draft and status without assuming optional fields
   exist or treating unknown values as success.
-- [ ] On failure, show a visible error and preserve the question; do not show a
+- [x] On failure, show a visible error and preserve the question; do not show a
   fabricated draft or silently retry.
+
+W5-02 validation covers the HTTP/UI boundary with controlled responses, not a
+new RAG quality evaluation or a live persisted draft/review walkthrough. The
+client validates core/displayed field types; it does not duplicate the complete
+backend schema or derive review eligibility. No UI timeout/cancellation or
+saved-draft reconciliation endpoint is introduced.
 
 ### W5-03: Show evidence and final checks
 
@@ -291,6 +301,10 @@ existing by itself is not completion evidence.
 | 2026-10-26 | W5-01 image and proxy | Base and debug `docker compose config --quiet` checks passed. A repository-root Docker build restored frontend dependencies with `npm ci` and built the combined image. Its isolated runtime returned HTTP 200 for `/health`, the workbench, and base-prefixed JS/CSS. Vite forwarded `/v1/metrics` and preserved a backend 404. Runtime assertions confirmed built assets at `/web/dist/`, no Node/npm executable, and no copied `/app/.env`. The draft-request counter stayed zero. Debug configuration merging was checked; an attached debugger session was not run. |
 | 2026-10-26 | W5-01 browser | Integrated-browser checks passed for Docker-backed Vite development and the packaged FastAPI-served UI. Verified controlled character counts, all four action buttons disabled, skip-link/main/question keyboard focus, desktop two-column layout, and a single column at 390px without horizontal overflow. Browser resource timing confirmed packaged JS/CSS and no UI `/v1` requests; visual inspection confirmed readable shell/status/focus presentation. Native Windows Node development was not executed. |
 | 2026-10-26 | W5-01 cleanup and boundary | Stopped and removed only the task-owned validation containers, temporary npm-cache volume, and isolated test image tag. Source, lockfile, and ignored local build/dependencies remain; existing infrastructure was not stopped. No real draft/review request, model inference, simulated delivery, automation enablement, staging, or commit was performed. W5-02 onward and the learner walkthrough remain open. |
+| 2026-10-30 | W5-02 scope and implementation | Learner committed W5-01 as `52a8ae8`, then delegated W5-02. Added parent-owned initial/submitting/ready/error state, a submit-only relative draft POST, an immediate in-flight guard, submitted-question/trace binding, explicit preview/abstention/unknown display, and visible HTTP/network/JSON/shape errors. Input survives failures; new requests clear old results; review controls remain disabled. No backend/model configuration or dependency versions changed. |
+| 2026-10-30 | W5-02 automated checks | Existing Node 24 container: `npm test` passed 29 request-helper tests, `npm run lint` passed, and `npm run build` passed. Tests use Node's built-in runner; no test library was added. The editor test tool did not discover the JavaScript tests, so `npm test` supplied the evidence. API venv: `python -m unittest tests.test_workbench` passed nine static-serving regressions. |
+| 2026-10-30 | W5-02 browser checks | Checked Docker-backed Vite proxy and FastAPI-served built assets against a task-owned synthetic API fixture. Verified generated/preview/no-evidence states, missing/future fields, explicit zero/false, literal HTML rendered as text, 422/502 errors, invalid JSON/body shape, real connection refusal, and proxy-backend outage. Verified same-tick duplicate-submit prevention, disabled in-flight controls, no mount/rerender requests, old-result clearing, submitted-question/trace binding, preserved input, keyboard/focus behavior, and mobile 390px/desktop layout. Browser resource entries and fixture logs showed only draft POSTs; no review/delivery calls. |
+| 2026-10-30 | W5-02 validation boundary and cleanup | Browser checks reused an existing Python runtime image with current API source and generated assets mounted read-only; a fresh full production-image build was not rerun. No real model call, database draft/review write, evaluation, or automation change occurred. Removed the task-owned fixture, validation containers, and network; existing PostgreSQL/Redis/Ollama containers remained running. Changes were not staged or committed. Learner understanding and live-stack browser walkthrough remain unverified. |
 
 ## Acceptance criteria
 
@@ -337,7 +351,8 @@ full status.
 
 ## Implementation boundary
 
-The learner approved the W5-00 design and delegated W5-01 shell implementation.
-Keep draft/review integration for W5-02 through W5-04 separate; do not implement
-or claim those milestones complete under this approval. If verified API or
-build facts require a material design change, discuss it before proceeding.
+The learner approved W5-01 shell implementation on 2026-10-26 and separately
+delegated W5-02 question-to-draft integration on 2026-10-30. Keep evidence details
+and review integration for W5-03/W5-04 separate; do not implement or claim those
+milestones complete under this approval. If verified API or build facts require
+a material design change, discuss it before proceeding.

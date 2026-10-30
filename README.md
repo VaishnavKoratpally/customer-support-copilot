@@ -21,7 +21,7 @@ generation pilot:
 - opt-in FAQ replies generated from validated evidence, persisted for human review with null confidence
 - persisted human-review lifecycle and locally simulated delivery gates
 - opt-in, recorded evidence-assessor proposals and separate reviewer feedback
-- React reviewer-workbench shell; draft/review API integration remains a later step
+- React reviewer workbench with draft requests; evidence details and review actions remain later steps
 - architecture docs and ADR template
 - day-by-day execution checklist
 - v1 domain scope selected: B2B SaaS billing + account support
@@ -39,12 +39,26 @@ generation pilot:
 - Python 3.11+ (for local non-container validation, optional)
 - Node.js 24+ and npm (for native frontend development, optional when using Docker)
 
-## Reviewer workbench: W5-01 shell
+## Reviewer workbench: W5-02 question-to-draft flow
 
-The first React slice provides a question field and draft, evidence, and review
-panels. Only the question field and character count are interactive. Draft and
-review actions are visibly disabled: this shell makes no support API requests,
-performs no inference, and sends no messages.
+The React workbench submits synthetic questions to `POST /v1/support/draft`
+through an explicit form action. It displays the returned content, submitted
+question, trace ID, draft mode, backend outcome, and review status. The backend
+configuration determines preview versus generated behavior; the UI does not
+enable generation or automation.
+
+The question and submit button are disabled while a request is active. Starting
+another request clears the previous result; changing the input alone does not
+relabel an existing draft. Errors preserve the input, do not manufacture a draft,
+and do not trigger automatic retries. Missing metadata stays unknown. A response
+arriving is not proof of answer quality, approval, or permission to send.
+
+Evidence details and review actions remain unimplemented and visibly deferred.
+The page makes no review or delivery requests. There is no client-side request
+deadline or cancellation control in this slice: it waits for the response or a
+network failure. Reloading loses browser state and does not guarantee cancellation
+of backend work. A lost/unreadable response can leave the save outcome uncertain;
+submitting again may create another draft.
 
 The [Week 5 checklist](docs/WEEK-05-EXECUTION-CHECKLIST.md) and
 [ADR-013](docs/adr/013-react-reviewer-workbench.md) track the scope and decision.
@@ -99,13 +113,38 @@ docker run --rm -it -p "127.0.0.1:5173:5173" `
 The `&&` operators above run inside the container's Linux shell, not
 PowerShell. Stop this development server with Ctrl+C.
 
-For native lint/build checks, run `npm run lint` and `npm run build` from
-`services/web`. Vite outputs ignored assets to `services/web/dist/` with
+For native checks, run `npm test`, `npm run lint`, and `npm run build` from
+`services/web`. Tests use Node's built-in runner without another dependency.
+Vite outputs ignored assets to `services/web/dist/` with
 `/workbench/` asset URLs. A locally run API uses that sibling build directory.
 Build before starting/restarting the API; without an index file, workbench
 requests return an explicit 503 while API routes remain available.
 
 Vite's development and preview servers are not the production serving layer.
+
+### W5-02 browser walkthrough
+
+Use the existing local API setup with synthetic data and automation disabled.
+Requests against that API can run retrieval/model inference and save draft
+records; the automated browser validation recorded in the Week 5 checklist
+instead used controlled synthetic HTTP responses.
+
+1. Open `/workbench/` through Vite or the built API image. Loading the page or
+   typing must not send a draft request.
+2. Enter `How do I download a PDF copy of an issued invoice?` and select
+   **Request draft**. Confirm one POST in the browser's network log and disabled
+   question/submit controls while it is active.
+3. Check that the submitted question and trace belong to the response. A
+   preview-only notice is not a generated answer; an abstention is not an API
+   transport failure. Null confidence stays unknown.
+4. Change the question without submitting. The existing result must still show
+   its original submitted question and trace. A new submission replaces it.
+5. In a controlled failure check with the local API unavailable, confirm an
+   explicit error, preserved question, cleared old result/trace, and no retry.
+   Do not infer that a failed response means the backend saved nothing.
+6. Use keyboard navigation and a narrow viewport. The result heading receives
+   focus after a request finishes. Review controls remain disabled, and the
+   page must not call review or delivery endpoints.
 
 ## pgAdmin (Database GUI)
 
