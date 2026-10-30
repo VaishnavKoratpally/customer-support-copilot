@@ -21,6 +21,7 @@ generation pilot:
 - opt-in FAQ replies generated from validated evidence, persisted for human review with null confidence
 - persisted human-review lifecycle and locally simulated delivery gates
 - opt-in, recorded evidence-assessor proposals and separate reviewer feedback
+- React reviewer-workbench shell; draft/review API integration remains a later step
 - architecture docs and ADR template
 - day-by-day execution checklist
 - v1 domain scope selected: B2B SaaS billing + account support
@@ -28,6 +29,7 @@ generation pilot:
 ## Repository layout
 
 - `services/api`: FastAPI backend skeleton
+- `services/web`: React/Vite JavaScript reviewer workbench
 - `docs`: architecture, ADRs, and execution checklist
 - `docker-compose.yml`: local runtime
 
@@ -35,6 +37,75 @@ generation pilot:
 
 - Docker Desktop
 - Python 3.11+ (for local non-container validation, optional)
+- Node.js 24+ and npm (for native frontend development, optional when using Docker)
+
+## Reviewer workbench: W5-01 shell
+
+The first React slice provides a question field and draft, evidence, and review
+panels. Only the question field and character count are interactive. Draft and
+review actions are visibly disabled: this shell makes no support API requests,
+performs no inference, and sends no messages.
+
+The [Week 5 checklist](docs/WEEK-05-EXECUTION-CHECKLIST.md) and
+[ADR-013](docs/adr/013-react-reviewer-workbench.md) track the scope and decision.
+
+### Built workbench through Docker
+
+After the existing quick-start configuration and database setup, run from the
+repository root:
+
+```powershell
+docker compose up --build api
+```
+
+Open http://localhost:8000/workbench/ (adjust the port if `APP_PORT` differs).
+The image build uses Node/Vite to produce static assets; the final container
+runs only Python/Uvicorn. FastAPI serves the built UI and the existing API.
+No Nginx or Node production server is involved.
+
+The API build context is now the repository root. The debug Compose overlay
+inherits this context and preserves its existing debug command and source
+mount. The root Docker ignore file allows only the application/build inputs;
+local environment files, evaluation captures, and unrelated files are excluded.
+
+### Frontend development
+
+With Node.js 24+ available, run:
+
+```powershell
+Set-Location .\services\web
+npm ci
+if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
+npm run dev
+```
+
+Open http://localhost:5173/workbench/. Vite proxies `/v1` to
+http://127.0.0.1:8000. To use another API address, set
+`$env:WORKBENCH_API_TARGET` before starting Vite. This is development-server
+configuration, not a browser credential.
+
+Without a native Node installation, the development server can run in a
+temporary container. From the repository root:
+
+```powershell
+$webPath = (Resolve-Path .\services\web).Path
+docker run --rm -it -p "127.0.0.1:5173:5173" `
+  --mount "type=bind,source=$webPath,target=/web" `
+  --workdir /web `
+  --env WORKBENCH_API_TARGET=http://host.docker.internal:8000 `
+  node:24-alpine sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+```
+
+The `&&` operators above run inside the container's Linux shell, not
+PowerShell. Stop this development server with Ctrl+C.
+
+For native lint/build checks, run `npm run lint` and `npm run build` from
+`services/web`. Vite outputs ignored assets to `services/web/dist/` with
+`/workbench/` asset URLs. A locally run API uses that sibling build directory.
+Build before starting/restarting the API; without an index file, workbench
+requests return an explicit 503 while API routes remain available.
+
+Vite's development and preview servers are not the production serving layer.
 
 ## pgAdmin (Database GUI)
 

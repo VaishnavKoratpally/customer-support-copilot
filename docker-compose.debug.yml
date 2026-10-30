@@ -2,7 +2,6 @@ services:
   api:
     image: customer-support-copilot-api-debug
     build:
-      context: ./services/api
       args:
         REQUIREMENTS_FILE: requirements-debug.txt
     command:

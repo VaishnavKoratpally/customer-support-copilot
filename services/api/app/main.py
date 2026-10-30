@@ -64,6 +64,7 @@ from app.idempotency import (
     RedisIdempotencyStore,
     review_idempotency_key,
 )
+from app.workbench import mount_workbench
 
 metrics = InMemoryMetrics()
 app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
@@ -71,6 +72,7 @@ app = FastAPI(title="Customer Support Copilot API", version="0.1.0")
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger("support_copilot.api")
+mount_workbench(app)
 ingestion_preview_pipeline = IngestionPreviewPipeline()
 embedding_provider = OllamaEmbeddingProvider(
     base_url=settings.ollama_base_url,

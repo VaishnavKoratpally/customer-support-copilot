@@ -1,0 +1,16 @@
+**
+!services/
+!services/api/
+!services/api/Dockerfile
+!services/api/requirements*.txt
+!services/api/app/
+!services/api/app/**
+!services/web/
+!services/web/package.json
+!services/web/package-lock.json
+!services/web/index.html
+!services/web/vite.config.js
+!services/web/src/
+!services/web/src/**
+**/__pycache__/
+**/*.pyc

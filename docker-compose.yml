@@ -68,7 +68,8 @@ services:
 
   api:
     build:
-      context: ./services/api
+      context: .
+      dockerfile: services/api/Dockerfile
     restart: unless-stopped
     environment:
       SUPPORT_DRAFT_GENERATION_ENABLED: ${SUPPORT_DRAFT_GENERATION_ENABLED:-false}
